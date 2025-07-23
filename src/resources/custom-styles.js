@@ -1,0 +1,1 @@
+export const tableHeader = { background: "#ACE8E645", color: "#374957" }

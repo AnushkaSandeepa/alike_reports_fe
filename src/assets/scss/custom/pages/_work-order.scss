@@ -1,0 +1,31 @@
+.tab-btn {
+    cursor: pointer;
+    background-color: #fff;
+    border: none;
+    outline: none;
+    padding: 5px 10px;
+    margin-right: 70px;
+    border-radius: 21px;
+  }
+  
+  .tab-btn.active-tab {
+    background-color: #EBF4F4;
+    color: #374957;
+    
+  }
+
+  .search-container {
+    display: flex;
+    align-items: center;
+  }
+
+  input[type="text"] {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+
+  .search-icon {
+    margin-right: 5px;
+    color: #555; /* Change color as needed */
+  }
