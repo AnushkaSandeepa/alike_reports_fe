@@ -9,7 +9,7 @@ import {
   useExpanded,
   usePagination,
 } from "react-table";
-import { Table, Row, Col, Button, Input, CardBody, Card } from "reactstrap";
+import { Table, Row, Col, Button, Input, CardBody, Card, CardTitle } from "reactstrap";
 import { Filter, DefaultColumnFilter } from "../../components/Common/filters";
 import JobListGlobalFilter from "../../components/Common/GlobalSearchFilter";
 import CustomerSearchBox from "@/pages/SheetList/CustomerSearchBox";
@@ -30,42 +30,15 @@ function GlobalFilter({
 
   return (
     <React.Fragment>
-      
-        {/* <div className="search-box me-xxl-3 my-4 my-xxl-0 d-inline-block pt-3">
-          <div className="position-relative">
-            <label htmlFor="search-bar-0" className="search-label">
-              <Row>
-                <Col md={5}> <span id="search-bar-0-label" className="sr-only">
-                Search Sheets
-              </span>
-                </Col>
-                <Col md={7}>
-                <input
-                onChange={e => {
-                  setValue(e.target.value);
-                  onChange(e.target.value);
-                }}
-                id="search-bar-0"
-                type="text"
-                width="500px"
-                className="f"
-                placeholder={`${count} records...`}
-                value={value || ""}
-              /></Col>
+      {isJobListGlobalFilter && (
+        <JobListGlobalFilter />
+      )}
 
-              </Row>
-              
-              
-            </label>
-            <i className="bx bx-search-alt search-icon"></i>
-          </div>
-        </div> */}
-        
     </React.Fragment>
   );
 }
 
-const TableContainer = ({
+const EventReportTableContainer = ({
   columns,
   data,
   isGlobalFilter,
@@ -135,21 +108,48 @@ const TableContainer = ({
   };
   return (
     <Fragment>
+      <Stack className="py-3 mb-3" alignItems="center" justifyContent="space-between">
+        <div className="fs-5" style={{ fontSize: '24px', fontWeight: '700' }}>
+          Event Evaluation 
+        </div>
       
-      <Stack className="py-3" alignItems="center" justifyContent="space-between">
-					<div className="fs-5 pb-3" style={{ fontSize: '24px', fontWeight: '700' }}>
-						Uploaded Event Sheets
-					</div>
-				</Stack>
+      </Stack>
+      <Card className="p-3">
+        <CardTitle tag="h5" className="mb-3">
+          Generate Your Event Report
+        </CardTitle>
+        <Row className="mb-2">
+        
+          
+          <h6 className="card-title">Select Your Event Sheet</h6>
+          <div className="form-floating mb-3">
+                            <select defaultValue="0" className="form-select">
+                              <option value="0">Select the Sheet</option>
+                              <option value="1">Event Planning 2025-26(1-8)</option>
+                              <option value="2">Grants and Fundraising 2025-26(1-12)</option>
+                              <option value="3">How to Facilitate a Support Group 2025(1-44)</option>
+                            </select>
+                          </div>
+          <div>
+          <button className="btn-alike">Generate</button>
+          </div>        
+        </Row>
 
-        <Card className="p-3">
-				  <CustomerSearchBox />
+      </Card>
 
-          {isJobListGlobalFilter && (
-          <JobListGlobalFilter />
+      <Card className="p-3">
+        <CardTitle tag="h5" className="mb-3">
+          Generated Event Reports
+        </CardTitle>
+          {isGlobalFilter && (
+            <GlobalFilter
+              preGlobalFilteredRows={preGlobalFilteredRows}
+              globalFilter={state.globalFilter}
+              setGlobalFilter={setGlobalFilter}
+              isJobListGlobalFilter={isJobListGlobalFilter}
+            />
           )}
-
-          <div className="table-responsive react-table">
+        <div className="table-responsive react-table">
           <Table bordered hover {...getTableProps()} className={className}>
             <thead className="table-light table-nowrap">
               {headerGroups.map(headerGroup => (
@@ -239,16 +239,13 @@ const TableContainer = ({
             </div>
           </Col>
         </Row>
-
-        </Card>
-
-      
+      </Card>
     </Fragment>
   );
 };
 
-TableContainer.propTypes = {
+EventReportTableContainer.propTypes = {
   preGlobalFilteredRows: PropTypes.any,
 };
 
-export default TableContainer;
+export default EventReportTableContainer;

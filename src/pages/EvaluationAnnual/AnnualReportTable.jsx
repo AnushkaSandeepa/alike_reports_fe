@@ -1,7 +1,7 @@
 // src/components/filter.
 import React, { useMemo } from "react";
 import PropTypes from 'prop-types';
-import EventReportTableContainer from "./EventReports";
+import AnnualReportTableContainer from "./AnnualReports";
 
 //import components
 
@@ -120,13 +120,9 @@ function EventReportGenerate() {
 
     return (
         <div className="page-content">
-			<div className="container-fluid">
-				{/* <Table columns={columns} data={data} /> */}
-				
-			</div>
             <div className="container-fluid">
                 {/* <Table columns={columns} data={data} /> */}
-                <EventReportTableContainer
+                <AnnualReportTableContainer
                     columns={columns}
                     data={data}
                     isGlobalFilter={true}

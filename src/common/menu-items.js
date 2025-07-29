@@ -21,18 +21,18 @@ const MENU_ITEMS = [
 		url: '/sheetslist',
 	},
 	{
-		key: 'eventSheets',
+		key: 'eventReports',
 		label: 'Events Evaluation',
 		isTitle: false,
 		icon: 'uil-dollar-sign',
 		url: '/event_reports',
 	},
 	{
-		key: 'inventory',
+		key: 'annualReports',
 		label: 'Anual Evaluation',
 		isTitle: false,
 		icon: 'uil-cube',
-		url: '/inventory',
+		url: '/annual_reports',
 	},
 	{
 		key: 'users',

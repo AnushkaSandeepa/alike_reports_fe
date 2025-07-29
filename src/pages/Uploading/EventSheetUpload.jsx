@@ -14,6 +14,7 @@ import Dropzone from "react-dropzone";
 // import Breadcrumbs from "../../components/Common/Breadcrumb";
 
 import { Link } from "react-router-dom";
+import { Stack } from "rsuite";
 
 const SheetUpload = () => {
 
@@ -49,37 +50,58 @@ const SheetUpload = () => {
     <React.Fragment>
       <div className="page-content">
         <Container fluid={true}>
-
+          <Stack className="py-3" alignItems="center" justifyContent="space-between">
+            <div className="fs-5" style={{ fontSize: '24px', fontWeight: '700' }}>
+              Sheet Uploading
+            </div>
+          </Stack>
           <Row style={{ marginTop: "20px" }}>
             <Col className="col-12">
               <Card>
                 <CardBody>
-                  <h6 className="card-title">Event Sheet Upload</h6>
-                  <CardSubtitle className="mb-3">
+                  {/* <CardSubtitle className="mb-3">
                     {" "}
                     Upload your event sheets in XLSX or CSV format.
-                  </CardSubtitle>
+                  </CardSubtitle> */}
                   <Form>
-                    <Dropzone
-                      onDrop={acceptedFiles => {
-                        handleAcceptedFiles(acceptedFiles)
-                      }}
-                    >
-                      {({ getRootProps, getInputProps }) => (
-                        <div className="dropzone">
-                          <div
-                            className="dz-message needsclick mt-2"
-                            {...getRootProps()}
-                          >
-                            <input {...getInputProps()} />
-                            <div className="mb-3">
-                              <i className="display-4 text-muted bx bxs-cloud-upload" />
+                    <Row>
+                      <Col md={3} className="mb-3">
+                          <h6 className="card-title">Select Event Type</h6>
+                          <select defaultValue="0" className="form-select">
+                            <option value="0">Select Type</option>
+                            <option value="1">Networking Events </option>
+                            <option value="2">Workshop</option>
+                          </select>
+                      </Col>
+                      <Col md={3} className="mb-3">
+                          <h6 className="card-title">Select Event Date</h6>
+                          
+                      </Col>
+                      <Col md={12}>
+                        <h6 className="card-title">Upload Your Sheets Here</h6>
+                        <Dropzone
+                          onDrop={acceptedFiles => {
+                            handleAcceptedFiles(acceptedFiles)
+                          }}
+                        >
+                          {({ getRootProps, getInputProps }) => (
+                            <div className="dropzone">
+                              <div
+                                className="dz-message needsclick mt-2"
+                                {...getRootProps()}
+                              >
+                                <input {...getInputProps()} />
+                                <div className="mb-3">
+                                  <i className="display-4 text-muted bx bxs-cloud-upload" />
+                                </div>
+                                <h4>Drop XLSX or CSV files here or click to upload.</h4>
+                              </div>
                             </div>
-                            <h4>Drop files here or click to upload.</h4>
-                          </div>
-                        </div>
-                      )}
-                    </Dropzone>
+                          )}
+                        </Dropzone>
+                      </Col>
+                    </Row>
+                    
                     <div className="dropzone-previews mt-3" id="file-previews">
                       {selectedFiles.map((f, i) => {
                         return (
@@ -117,13 +139,12 @@ const SheetUpload = () => {
                     </div>
                   </Form>
 
-                  <div className="text-center mt-4">
+                  <div className=" mt-4">
                     <button
                       type="button"
-                      className="btn btn-primary "
-                      style={{ backgroundColor: "#064d5f" }}
-                    >
-                      Send Files
+                      className="btn-alike "
+                      >
+                      Upload Sheet
                     </button>
                   </div>
                 </CardBody>

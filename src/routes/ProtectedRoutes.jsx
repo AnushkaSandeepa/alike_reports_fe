@@ -9,7 +9,9 @@ import User from '@/pages/user';
 import Vehicle from '@/pages/vehicle';
 import SheetUpload from '@/pages/Uploading/EventSheetUpload';
 import EventSheetsTable from '@/pages/SheetList/EventSheetsTable';
-import EventReportGenerate from '@/pages/EventEvaluation/GenerateReport';
+import EventReportGenerate from '@/pages/EvaluationEvent/EventReportTable';
+import AnnualReportGenerate from '@/pages/EvaluationAnnual/AnnualReportTable';
+
 
 /**
  * routes import
@@ -38,7 +40,9 @@ export default function ProtectedRoutes() {
 				<Route path="upload/*" element={<SheetUpload />} />
 				<Route path="sheetslist/*" element={<EventSheetsTable />} />
 				<Route path="event_reports/*" element={<EventReportGenerate />} />
+				<Route path="annual_reports/*" element={<AnnualReportGenerate />} />
 
+			     {/* have to remove */}
 				<Route path="vehicle/*" element={<Vehicle />} />
 				<Route path="user/*" element={<User />} />
 				

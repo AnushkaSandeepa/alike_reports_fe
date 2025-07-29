@@ -1,7 +1,7 @@
 import { lazy } from 'react';
 import { Outlet, Route, Routes } from 'react-router-dom';
 
-const GenerateReport = lazy(() => import('./GenerateReport'));
+const GenerateReport = lazy(() => import('./EventReportTable'));
 
 export default function EventReport() {
 	return (

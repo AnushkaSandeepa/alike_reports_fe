@@ -1,40 +1,32 @@
 // src/components/filter.
 import React, { useMemo } from "react";
 import PropTypes from 'prop-types';
-import TableContainer from "@/pages/SheetList/TableContainer";
+import EventReportTableContainer from "./EventReports";
 
 //import components
 
-function EventSheetsTable() {
+function EventReportGenerate() {
     const columns = useMemo(
         () => [
             {
-            Header: 'File ID',
+            Header: 'Report ID',
             accessor: 'age',
-            width: 100,         // Fixed width (exactly 100px)
-            },
-           
-            {
-            Header: 'File Name',
-            accessor: 'name',
-            width: 200,         // You can adjust this to fit your layout
             },
             {
-            Header: 'File Type',
-            accessor: 'sheet_type',
-            width: 200,         // You can adjust this to fit your layout
-            },
-            {
-            Header: 'Uploaded date',
+            Header: 'Generated date',
             accessor: 'startDate',
             minWidth: 150,      // Minimum width (won't go smaller than 150px)
             maxWidth: 250,      // Maximum width (won't go wider than 250px)
             },
             {
-            Header: 'Status',
-            accessor: 'status',
-            minWidth: 150,      // Minimum width (won't go smaller than 150px)
-            maxWidth: 250,      // Maximum width (won't go wider than 250px)
+            Header: 'Event Name',
+            accessor: 'name',
+            width: 200,         // You can adjust this to fit your layout
+            },
+			{
+            Header: 'Used File Name',
+            accessor: 'office',
+            width: 200,         // You can adjust this to fit your layout
             },
         ],
         []
@@ -47,8 +39,7 @@ function EventSheetsTable() {
             "age": 28,
             "office": "Singapore",
             "startDate": "2010/11/14",
-            "sheet_type": "Networking Event",
-            "status": "Active"
+            "salary": "$357,650"
         },
         {
             "name": "Gavin Joyce",
@@ -56,9 +47,7 @@ function EventSheetsTable() {
             "age": 42,
             "office": "Edinburgh",
             "startDate": "2010/12/22",
-            "sheet_type": "Networking Event",
-            "status": "Active"
-
+            "salary": "$92,575"
         },
         {
             "name": "Angelica Ramos",
@@ -66,9 +55,7 @@ function EventSheetsTable() {
             "age": 47,
             "office": "London",
             "startDate": "2009/10/09",
-            "sheet_type": "Networking Event",
-            "status": "Active"
-
+            "salary": "$1,200,000"
         },
         {
             "name": "Doris Wilder",
@@ -76,8 +63,7 @@ function EventSheetsTable() {
             "age": 23,
             "office": "Sidney",
             "startDate": "2010/09/20",
-            "sheet_type": "Networking Event",
-            "status": "Active"
+            "salary": "$85,600"
         },
         {
             "name": "Caesar Vance",
@@ -85,8 +71,7 @@ function EventSheetsTable() {
             "age": 21,
             "office": "New York",
             "startDate": "2011/12/12",
-            "sheet_type": "Networking Event",
-            "status": "Inactive"
+            "salary": "$106,450"
         },
         {
             "name": "Yuri Berry",
@@ -94,8 +79,7 @@ function EventSheetsTable() {
             "age": 40,
             "office": "New York",
             "startDate": "2009/06/25",
-            "sheet_type": "Workshop",
-            "status": "Active"
+            "salary": "$675,000"
         },
         {
             "name": "Jenette Caldwell",
@@ -103,8 +87,7 @@ function EventSheetsTable() {
             "age": 30,
             "office": "New York",
             "startDate": "2011/09/03",
-            "sheet_type": "Workshop",
-            "status": "Inactive"
+            "salary": "$345,000"
         },
         {
             "name": "Dai Rios",
@@ -112,8 +95,7 @@ function EventSheetsTable() {
             "age": 35,
             "office": "Edinburgh",
             "startDate": "2012/09/26",
-            "sheet_type": "Workshop",
-            "status": "Active"
+            "salary": "$217,500"
         },
         {
             "name": "Bradley Greer",
@@ -121,8 +103,7 @@ function EventSheetsTable() {
             "age": 41,
             "office": "London",
             "startDate": "2012/10/13",
-            "sheet_type": "Workshop",
-            "status": "Active"
+            "salary": "$132,000"
         },
         {
             "name": "Gloria Little",
@@ -130,8 +111,7 @@ function EventSheetsTable() {
             "age": 59,
             "office": "New York",
             "startDate": "2009/04/10",
-            "sheet_type": "Workshop",
-            "status": "Active"
+            "salary": "$237,500"
         }
     ];
 
@@ -142,7 +122,7 @@ function EventSheetsTable() {
         <div className="page-content">
             <div className="container-fluid">
                 {/* <Table columns={columns} data={data} /> */}
-                <TableContainer
+                <EventReportTableContainer
                     columns={columns}
                     data={data}
                     isGlobalFilter={true}
@@ -154,10 +134,10 @@ function EventSheetsTable() {
         </div>
     );
 }
-EventSheetsTable.propTypes = {
+EventReportGenerate.propTypes = {
     preGlobalFilteredRows: PropTypes.any,
 
 };
 
 
-export default EventSheetsTable;
+export default EventReportGenerate;
