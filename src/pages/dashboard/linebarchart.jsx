@@ -2,130 +2,72 @@ import React from "react";
 import ReactEcharts from "echarts-for-react";
 import getChartColorsArray from "@/components/Common/ChartsDynamicColor";
 
-const LineBar = ({dataColors}) => {
-  const spineareaChartColors = getChartColorsArray(dataColors);
+const LineBar = ({}) => {
 
   const options = {
-    grid: {
-      zlevel: 0,
-      x: 80,
-      x2: 50,
-      y: 30,
-      y2: 30,
-      borderWidth: 0,
-      backgroundColor: "rgba(0,0,0,0)",
-      borderColor: "rgba(0,0,0,0)",
-    },
     tooltip: {
       trigger: "axis",
-      axisPointer: {
-        type: "cross",
-        crossStyle: {
-          color: "#999",
-        },
-      },
     },
-    toolbox: {
-      orient: "center",
-      left: 0,
-      top: 20,
-      feature: {
-        dataView: { show: true, readOnly: false, title: "Data View" },
-        magicType: { show: true, type: ["line", "bar"], title: { line: "For line chart", bar: "For bar chart" } },
-        restore: { show: true, title: "restore" },
-        saveAsImage: { show: true, title: "Download Image" },
-      },
-    },
-    color: spineareaChartColors,
     legend: {
-      data: ["Evaporation", "Precipitation", "Average temperature"],
-      textStyle: {
-        color: ["#8791af"],
-      },
+      data: ["Followers", "Post Reach", "Post Engagement"],
     },
-    xAxis: [
-      {
-        type: "category",
-        data: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"],
-        axisPointer: {
-          type: "shadow",
-        },
-        axisLine: {
-          lineStyle: {
-            color: "#8791af",
-          },
-        },
-      },
-    ],
+    xAxis: {
+      type: "category",
+      data: ["July", "August", "September", "October", "November", "December"],
+    },
     yAxis: [
       {
         type: "value",
-        name: "Water volume",
-        min: 0,
-        max: 250,
-        interval: 50,
-        axisLine: {
-          lineStyle: {
-            color: '#8791af'
-          },
-        },
-        splitLine: {
-          lineStyle: {
-            color: "rgba(166, 176, 207, 0.1)"
-          }
-        },
-        axisLabel: {
-          formatter: '{value} ml'
-        }
+        name: "Users",
       },
       {
         type: "value",
-        name: "Temperature",
-        min: 0,
-        max: 25,
-        interval: 5,
-        axisLine: {
-          lineStyle: {
-            color: '#8791af'
-          },
-        },
-        splitLine: {
-          lineStyle: {
-            color: "rgba(166, 176, 207, 0.1)"
-          }
-        },
-        axisLabel: {
-          formatter: '{value} Ã‚Â°C'
-        }
+        name: "Engagement",
       },
     ],
     series: [
       {
-        name: "Evaporation",
+        name: "Followers",
         type: "bar",
-        data: [2.0, 4.9, 7.0, 23.2, 25.6, 76.7, 135.6, 162.2],
+        data: [2500, 2600, 550, 2600, 2650, 1700],
+        itemStyle: {
+          color: "#3B82F6" // Blue
+        },
       },
       {
-        name: "Precipitation",
+        name: "Post Reach",
         type: "bar",
-        data: [2.6, 5.9, 9.0, 26.4, 28.7, 70.7, 175.6, 182.2],
+        data: [2100, 1800, 4300, 2400, 1600, 1100],
+        itemStyle: {
+          color: "#BDBDBD" // Light gray
+        },
       },
       {
-        name: "Average Temperature",
+        name: "Post Engagement",
         type: "line",
         yAxisIndex: 1,
-        data: [2.0, 2.2, 3.3, 4.5, 6.3, 10.2, 20.3, 23.4],
+        data: [270, 230, 620, 420, 390, 80],
+        lineStyle: {
+          color: "#60A5FA", // Line color
+          width: 3,
+        },
+        symbol: "circle",
+        symbolSize: 8,
       },
     ],
-    textStyle: {
-      color: ["#74788d"],
-    },  
+    grid: {
+      left: "10%",
+      right: "10%",
+      bottom: "10%",
+      containLabel: true,
+    },
+     
   }
 
 
   return (
     <React.Fragment>
-      <ReactEcharts style={{ height: "350px" }} option={options} />
+      <ReactEcharts style={{ height: "350px" }} option={options} theme="light" />
     </React.Fragment>
   );
 };

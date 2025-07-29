@@ -89,9 +89,9 @@ const Dashboard = () => {
 				
 				<Card>
                 <CardBody>
-                  <CardTitle>Mix Line-Bar</CardTitle>
+                  <CardTitle>Facebook Reach</CardTitle>
                   <div id="mix-line-bar" className="e-chart">
-                    <LineBar dataColors='["--bs-success","--bs-primary", "--bs-danger"]'/>
+                    <LineBar />
                   </div>
                 </CardBody>
               </Card>
