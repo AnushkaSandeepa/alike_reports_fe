@@ -7,6 +7,7 @@ import {
   CardBody,
   CardSubtitle,
   Container,
+  InputGroup,
 } from "reactstrap";
 import Dropzone from "react-dropzone";
 
@@ -15,6 +16,11 @@ import Dropzone from "react-dropzone";
 
 import { Link } from "react-router-dom";
 import { Stack } from "rsuite";
+
+//Import Flatepicker
+import "flatpickr/dist/themes/material_blue.css";
+import Flatpickr from "react-flatpickr";
+
 
 const SheetUpload = () => {
 
@@ -75,7 +81,17 @@ const SheetUpload = () => {
                       </Col>
                       <Col md={3} className="mb-3">
                           <h6 className="card-title">Select Event Date</h6>
-                          
+                          <InputGroup>
+                            <Flatpickr
+                              className="form-control d-block"
+                              placeholder="dd M,yyyy"
+                              options={{
+                                altInput: true,
+                                altFormat: "F j, Y",
+                                dateFormat: "Y-m-d"
+                              }}
+                            />
+                          </InputGroup>
                       </Col>
                       <Col md={12}>
                         <h6 className="card-title">Upload Your Sheets Here</h6>

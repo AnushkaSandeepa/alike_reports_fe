@@ -9,11 +9,19 @@ import {
   useExpanded,
   usePagination,
 } from "react-table";
-import { Table, Row, Col, Button, Input, CardBody, Card, CardTitle } from "reactstrap";
+import { Table, Row, Col, Button, Input, CardBody, Card, CardTitle, InputGroup, Label, FormGroup } from "reactstrap";
 import { Filter, DefaultColumnFilter } from "../../components/Common/filters";
 import JobListGlobalFilter from "../../components/Common/GlobalSearchFilter";
 import CustomerSearchBox from "@/pages/SheetList/CustomerSearchBox";
 import {  Stack,  } from 'rsuite';
+import { SketchPicker } from "react-color";
+import "react-datepicker/dist/react-datepicker.css";
+
+
+
+//Import Flatepicker
+import "flatpickr/dist/themes/material_blue.css";
+import Flatpickr from "react-flatpickr";
 
 // Define a default UI for filtering
 function GlobalFilter({
@@ -123,13 +131,20 @@ const AnnualReportTableContainer = ({
           
           <h6 className="card-title">Select Date Range</h6>
           <div className="form-floating mb-3">
-                            <select defaultValue="0" className="form-select">
-                              <option value="0">Select the Sheet</option>
-                              <option value="1">Event Planning 2025-26(1-8)</option>
-                              <option value="2">Grants and Fundraising 2025-26(1-12)</option>
-                              <option value="3">How to Facilitate a Support Group 2025(1-44)</option>
-                            </select>
-                          </div>
+          <FormGroup className="mb-4">
+              <Label>Date Range</Label>
+              <InputGroup>
+                <Flatpickr
+                  className="form-control d-block"
+                  placeholder="dd M,yyyy"
+                  options={{
+                    mode: "range",
+                    dateFormat: "Y-m-d"
+                  }}
+                />
+              </InputGroup>
+            </FormGroup>
+          </div>
           <div>
           <button className="btn-alike">Generate</button>
 
