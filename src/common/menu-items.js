@@ -8,30 +8,30 @@ const MENU_ITEMS = [
 	},
 	{
 		key: 'workOrders',
-		label: 'Sheet Uploading',
+		label: 'Spreadsheet Uploading',
 		isTitle: false,
 		icon: 'uil-upload',
 		url: '/upload',
 	},
 	{
 		key: 'eventSheets',
-		label: 'Events Sheets',
+		label: 'Spreadsheets',
 		isTitle: false,
-		icon: 'uil-dollar-sign',
+		icon: 'uil-file-alt',
 		url: '/sheetslist',
 	},
 	{
 		key: 'eventReports',
-		label: 'Events Evaluation',
+		label: 'Program Evaluation',
 		isTitle: false,
-		icon: 'uil-dollar-sign',
+		icon: 'uil-chart-line',
 		url: '/event_reports',
 	},
 	{
 		key: 'annualReports',
-		label: 'Anual Evaluation',
+		label: 'Annual Evaluation',
 		isTitle: false,
-		icon: 'uil-cube',
+		icon: 'uil-schedule', // or 'uil-analytics'
 		url: '/annual_reports',
 	},
 	{
@@ -40,8 +40,7 @@ const MENU_ITEMS = [
 		isTitle: false,
 		icon: 'uil-user-plus',
 		url: '/user',
-	},
-	
+	}
 ];
 
 const HORIZONTAL_MENU_ITEMS = [

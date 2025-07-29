@@ -1,7 +1,7 @@
 import { lazy } from 'react';
 import { Outlet, Route, Routes } from 'react-router-dom';
 
-const SheetListTables = lazy(() => import('./EventSheetsTable'));
+const SheetListTables = lazy(() => import('./SpreadsheetsTable'));
 
 export default function Sheets() {
 	return (

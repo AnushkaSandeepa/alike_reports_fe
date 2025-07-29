@@ -29,3 +29,47 @@
     margin-right: 5px;
     color: #555; /* Change color as needed */
   }
+
+  .flatpickr-calendar span.flatpickr-weekday {
+    cursor: default;
+    font-size: 90%;
+    background: none !important;
+    color: none !important;
+    line-height: 1;
+    margin: 0;
+    text-align: center;
+    display: block;
+    -webkit-box-flex: 1;
+    -webkit-flex: 1;
+    -ms-flex: 1;
+    flex: 1;
+    font-weight: bolder;
+  }
+
+  .flatpickr-months .flatpickr-month  {
+    background: none !important;
+    color: none !important;
+  }
+
+  .flatpickr-current-month .flatpickr-monthDropdown-months{
+    background: none !important;
+    color: none !important;
+  }
+
+  .date-buttion-alike{
+    display: block !important;
+    height: 40px !important;
+    padding: .375rem 2.25rem .375rem .75rem !important;
+    -moz-padding-start: calc(.75rem - 3px) !important;
+    font-size: 1rem !important;
+    line-height: 1.6 !important;
+    color: #4f4f4f !important;
+    background-position: right .75rem center !important;
+    background-size: 16px 12px !important;
+    border: 1px solid #bdbdbd   !important;
+    border-radius: .25rem !important;
+   
+  }
+
+
+  

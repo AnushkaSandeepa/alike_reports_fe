@@ -110,26 +110,36 @@ const EventReportTableContainer = ({
     <Fragment>
       <Stack className="py-3 mb-3" alignItems="center" justifyContent="space-between">
         <div className="fs-5" style={{ fontSize: '24px', fontWeight: '700' }}>
-          Event Evaluation 
+          Program Evaluation 
         </div>
       
       </Stack>
       <Card className="p-3">
         <CardTitle tag="h5" className="mb-3">
-          Generate Your Event Report
+          Generate Your Program Evaluation Report
         </CardTitle>
         <Row className="mb-2">
-        
+          <Col md={3} className="mb-3">
+              <h6 className="card-title">Select Program Type</h6>
+              <select defaultValue="0" className="form-select">
+                <option value="0">Select Type</option>
+                <option value="1">Networking Events </option>
+                <option value="2">Workshop</option>
+              </select>
+          </Col>
+          <Col md={5} className="mb-3">
+              <h6 className="card-title">Select Program's Spreadsheet</h6>
+              <select defaultValue="0" className="form-select">
+                <option value="0">Select the Sheet</option>
+                <option value="1">Event Planning 2025-26(1-8)</option>
+                <option value="2">Grants and Fundraising 2025-26(1-12)</option>
+                <option value="3">How to Facilitate a Support Group 2025(1-44)</option>
+              </select>
+          </Col>
+              
+                                
           
-          <h6 className="card-title">Select Your Event Sheet</h6>
-          <div className="form-floating mb-3">
-                            <select defaultValue="0" className="form-select">
-                              <option value="0">Select the Sheet</option>
-                              <option value="1">Event Planning 2025-26(1-8)</option>
-                              <option value="2">Grants and Fundraising 2025-26(1-12)</option>
-                              <option value="3">How to Facilitate a Support Group 2025(1-44)</option>
-                            </select>
-                          </div>
+          
           <div>
           <button className="btn-alike">Generate</button>
           </div>        
@@ -139,7 +149,7 @@ const EventReportTableContainer = ({
 
       <Card className="p-3">
         <CardTitle tag="h5" className="mb-3">
-          Generated Event Reports
+          Generated Program Evaluation Reports
         </CardTitle>
           {isGlobalFilter && (
             <GlobalFilter

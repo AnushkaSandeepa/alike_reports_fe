@@ -20,6 +20,7 @@ import { Stack } from "rsuite";
 //Import Flatepicker
 import "flatpickr/dist/themes/material_blue.css";
 import Flatpickr from "react-flatpickr";
+import csvimg from "../../assets/images/File/Excel.png"
 
 
 const SheetUpload = () => {
@@ -58,7 +59,7 @@ const SheetUpload = () => {
         <Container fluid={true}>
           <Stack className="py-3" alignItems="center" justifyContent="space-between">
             <div className="fs-5" style={{ fontSize: '24px', fontWeight: '700' }}>
-              Sheet Uploading
+              Spreadsheet Uploading
             </div>
           </Stack>
           <Row style={{ marginTop: "20px" }}>
@@ -67,12 +68,12 @@ const SheetUpload = () => {
                 <CardBody>
                   {/* <CardSubtitle className="mb-3">
                     {" "}
-                    Upload your event sheets in XLSX or CSV format.
+                    Upload your Spreadsheets in XLSX or CSV format.
                   </CardSubtitle> */}
                   <Form>
                     <Row>
                       <Col md={3} className="mb-3">
-                          <h6 className="card-title">Select Event Type</h6>
+                          <h6 className="card-title">Select Program Type</h6>
                           <select defaultValue="0" className="form-select">
                             <option value="0">Select Type</option>
                             <option value="1">Networking Events </option>
@@ -80,10 +81,10 @@ const SheetUpload = () => {
                           </select>
                       </Col>
                       <Col md={3} className="mb-3">
-                          <h6 className="card-title">Select Event Date</h6>
+                          <h6 className="card-title">Select Program Date</h6>
                           <InputGroup>
                             <Flatpickr
-                              className="form-control d-block"
+                              className="form-control d-block date-buttion-alike"
                               placeholder="dd M,yyyy"
                               options={{
                                 altInput: true,
@@ -94,7 +95,7 @@ const SheetUpload = () => {
                           </InputGroup>
                       </Col>
                       <Col md={12}>
-                        <h6 className="card-title">Upload Your Sheets Here</h6>
+                        <h6 className="card-title">Upload Your Spreadsheets Here</h6>
                         <Dropzone
                           onDrop={acceptedFiles => {
                             handleAcceptedFiles(acceptedFiles)
@@ -132,8 +133,7 @@ const SheetUpload = () => {
                                     data-dz-thumbnail=""
                                     height="80"
                                     className="avatar-sm rounded bg-light"
-                                    alt={f.name}
-                                    src={f.preview}
+                                    src={csvimg}
                                   />
                                 </Col>
                                 <Col>

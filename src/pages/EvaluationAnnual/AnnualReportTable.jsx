@@ -2,10 +2,17 @@
 import React, { useMemo } from "react";
 import PropTypes from 'prop-types';
 import AnnualReportTableContainer from "./AnnualReports";
+import { useState } from "react";
+import { FaEye } from "react-icons/fa"; // You can install with: npm install react-icons
+import ViewAnnualReportModal from "@/components/AnnualReportModal";
 
 //import components
 
 function EventReportGenerate() {
+
+    const [annualmodalIsOpen, setAnnualModalIsOpen] = useState(false);
+    const [annualSelectedRow, setAnnualSelectedRow] = useState(null);
+
     const columns = useMemo(
         () => [
             {
@@ -19,15 +26,30 @@ function EventReportGenerate() {
             maxWidth: 250,      // Maximum width (won't go wider than 250px)
             },
             {
-            Header: 'Event Name',
+            Header: 'Generated Date Range',
             accessor: 'name',
-            width: 200,         // You can adjust this to fit your layout
+            width: 200,         
             },
-			{
+            {
             Header: 'Used File Name',
             accessor: 'office',
-            width: 200,         // You can adjust this to fit your layout
+            width: 200,         
             },
+            {
+            Header: 'View',
+            width: 100,
+            Cell: ({ row }) => (
+                <FaEye
+                style={{ cursor: 'pointer', color: '#007bff' }}
+                onClick={() => {
+                    setAnnualSelectedRow(row.original);
+                    setAnnualModalIsOpen(true);
+                }}
+                />
+            ),
+            }
+            
+
         ],
         []
         );
@@ -131,6 +153,13 @@ function EventReportGenerate() {
                     className="custom-header-css"
                 />
             </div>
+
+            <ViewAnnualReportModal
+                isOpen={annualmodalIsOpen}
+                onClose={() => setAnnualModalIsOpen(false)}
+                data={annualSelectedRow}
+                />
+
         </div>
     );
 }

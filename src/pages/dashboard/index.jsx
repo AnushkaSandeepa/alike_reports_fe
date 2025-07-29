@@ -25,7 +25,7 @@ const Dashboard = () => {
 						<Card
 							style={{
 								background:
-									'linear-gradient(94deg, #4AC6C6 -36.87%, #4AC6C6 -22.86%, #285C62 150.33%)',
+									'linear-gradient(94deg, #4a71c6ff -36.87%, #4AC6C6 -22.86%, #153986 150.33%)',
 							}}
 						>
 							<CardBody>

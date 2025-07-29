@@ -1,7 +1,7 @@
 import { lazy } from 'react';
 import { Outlet, Route, Routes } from 'react-router-dom';
 
-const SheetUpload = lazy(() => import('./EventSheetUpload'));
+const SheetUpload = lazy(() => import('./SpreadsheetUpload'));
 
 export default function SheetUpload() {
 	return (

@@ -138,7 +138,7 @@ const TableContainer = ({
       
       <Stack className="py-3" alignItems="center" justifyContent="space-between">
 					<div className="fs-5 pb-3" style={{ fontSize: '24px', fontWeight: '700' }}>
-						Uploaded Event Sheets
+						Uploaded Spreadsheets
 					</div>
 				</Stack>
 

@@ -7,9 +7,9 @@ import Root from './Root';
 import { Dashboard } from '@/pages/dashboard';
 import User from '@/pages/user';
 import Vehicle from '@/pages/vehicle';
-import SheetUpload from '@/pages/Uploading/EventSheetUpload';
-import EventSheetsTable from '@/pages/SheetList/EventSheetsTable';
-import EventReportGenerate from '@/pages/EvaluationEvent/EventReportTable';
+import SheetUpload from '@/pages/Uploading/SpreadsheetUpload';
+import EventSheetsTable from '@/pages/SheetList/SpreadsheetsTable';
+import EventReportGenerate from '@/pages/EvaluationProgram/ProgramReportTable';
 import AnnualReportGenerate from '@/pages/EvaluationAnnual/AnnualReportTable';
 
 

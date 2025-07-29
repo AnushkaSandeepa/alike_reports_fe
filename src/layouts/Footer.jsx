@@ -10,15 +10,15 @@ export default function Footer() {
 					<Col md={6}>{currentYear} © Alike - alike.org.au</Col>
 					<Col md={6}>
 						<div className="text-md-end footer-links d-none d-md-block">
-							<Link to="https://coderthemes.com" target="_blank">
+							<Link to="https://alike.org.au/" target="_blank">
 								About
 							</Link>
 							&nbsp;
-							<Link to="https://coderthemes.com" target="_blank">
+							<Link to="https://alike.org.au/contact-us/" target="_blank">
 								Support
 							</Link>
 							&nbsp;
-							<Link to="https://coderthemes.com" target="_blank">
+							<Link to="https://alike.org.au/contact-us/" target="_blank">
 								Contact Us
 							</Link>
 						</div>

@@ -4,7 +4,7 @@ import ErrorPages from '@/pages/error';
 import Account from '@/pages/account';
 import LandingPage from '@/pages/Landing';
 import ErrorPageNotFound from '@/pages/error/PageNotFound';
-import SheetUpload from '@/pages/Uploading/EventSheetUpload';
+import SheetUpload from '@/pages/Uploading/SpreadsheetUpload';
 // import Vehicle from '@/pages/vehicle/ListVehicle';
 
 export default function AppRoutes() {

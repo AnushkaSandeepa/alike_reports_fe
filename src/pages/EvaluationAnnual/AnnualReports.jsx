@@ -132,10 +132,9 @@ const AnnualReportTableContainer = ({
           <h6 className="card-title">Select Date Range</h6>
           <div className="form-floating mb-3">
           <FormGroup className="mb-4">
-              <Label>Date Range</Label>
               <InputGroup>
                 <Flatpickr
-                  className="form-control d-block"
+                  className="form-control d-block date-buttion-alike"
                   placeholder="dd M,yyyy"
                   options={{
                     mode: "range",
@@ -158,7 +157,7 @@ const AnnualReportTableContainer = ({
 
       <Card className="p-3">
         <CardTitle tag="h5" className="mb-3">
-          Generated Event Reports
+          Generated A Reports
         </CardTitle>
           {isGlobalFilter && (
             <GlobalFilter
