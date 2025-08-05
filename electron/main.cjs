@@ -48,62 +48,42 @@ ipcMain.handle(
   "store-spreadsheet",
   async (_, { sourcePath, programType, programDate }) => {
     try {
-      if (!sourcePath) {
-        throw new Error("sourcePath is required");
-      }
+      if (!sourcePath) throw new Error("sourcePath is required");
 
       const allowedExts = [".csv", ".xls", ".xlsx"];
       const resolvedSource = path.resolve(sourcePath);
 
-      // Ensure source exists and is a file
-      let stat;
-      try {
-        stat = await fs.promises.stat(resolvedSource);
-      } catch (e) {
-        throw new Error(`Source file not found or inaccessible: ${e.message}`);
-      }
-      if (!stat.isFile()) {
-        throw new Error("Source path is not a file.");
-      }
+      const stat = await fs.promises.stat(resolvedSource);
+      if (!stat.isFile()) throw new Error("Source path is not a file.");
 
-      // Validate extension
       const ext = path.extname(resolvedSource).toLowerCase();
       if (!allowedExts.includes(ext)) {
-        throw new Error(
-          `Unsupported file type "${ext}". Only CSV and Excel files are allowed.`
-        );
+        throw new Error(`Unsupported file type "${ext}".`);
       }
 
-      // Destination base: "uploadings" folder under userData
-      const baseDir = path.join(app.getPath("userData"), "uploadings");
-      await fs.promises.mkdir(baseDir, { recursive: true });
+      // Folder to store spreadsheets
+      const spreadsheetDir = path.join(app.getPath("userData"), "UploadFile");
+      await fs.promises.mkdir(spreadsheetDir, { recursive: true });
 
-      // Sanitizer
-      const sanitize = (name) =>
-        name.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_").trim();
-
-      // Build safe filename
+      const sanitize = (name) => name.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_").trim();
       const originalName = path.basename(resolvedSource, ext);
       const safeOriginal = sanitize(originalName);
       const safeProgramType = sanitize(String(programType || "general"));
       const safeProgramDate = sanitize(String(programDate || ""));
       let fileName = `${safeProgramType}_${safeProgramDate}_${safeOriginal}${ext}`;
-      let destFilePath = path.join(baseDir, fileName);
+      let destFilePath = path.join(spreadsheetDir, fileName);
 
-      // If exists, append timestamp
+      // Ensure uniqueness if file exists
       try {
         await fs.promises.access(destFilePath);
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
         fileName = `${safeProgramType}_${safeProgramDate}_${safeOriginal}_${timestamp}${ext}`;
-        destFilePath = path.join(baseDir, fileName);
-      } catch {
-        // doesn't exist, OK
-      }
+        destFilePath = path.join(spreadsheetDir, fileName);
+      } catch {}
 
-      // Copy file
       await fs.promises.copyFile(resolvedSource, destFilePath);
 
-      // Metadata sidecar
+      // Metadata
       const metadata = {
         originalPath: resolvedSource,
         storedAt: destFilePath,
@@ -111,26 +91,33 @@ ipcMain.handle(
         programDate,
         savedOn: new Date().toISOString(),
       };
-      const metadataPath = `${destFilePath}.metadata.json`;
+
+      // Save metadata in 'Documents' folder under userData
+      const documentsDir = path.join(app.getPath("userData"), "Documents");
+      await fs.promises.mkdir(documentsDir, { recursive: true });
+
+      const metadataDbPath = path.join(documentsDir, "uploads_db.json");
+      let allMetadata = [];
 
       try {
-        await fs.promises.writeFile(
-          metadataPath,
-          JSON.stringify(metadata, null, 2),
-          "utf-8"
-        );
-      } catch (e) {
-        // rollback copied file if metadata fails
-        try {
-          await fs.promises.unlink(destFilePath);
-        } catch {}
-        throw new Error(`Failed to write metadata: ${e.message}`);
-      }
+        const existing = await fs.promises.readFile(metadataDbPath, "utf-8");
+        allMetadata = JSON.parse(existing);
+      } catch {}
+
+      allMetadata.push(metadata);
+
+      await fs.promises.writeFile(
+        metadataDbPath,
+        JSON.stringify(allMetadata, null, 2),
+        "utf-8"
+      );
 
       return { success: true, metadata };
+
     } catch (err) {
       console.error("store-spreadsheet error:", err);
       return { success: false, error: err.message || "Unknown error" };
     }
   }
 );
+
