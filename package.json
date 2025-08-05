@@ -84,6 +84,8 @@
     "sass": "^1.64.2",
     "simplebar-react": "^3.2.4",
     "sortablejs": "^1.15.0",
+    "sweetalert2": "^11.22.2",
+    "sweetalert2-react-content": "^5.1.0",
     "yup": "^1.2.0"
   },
   "devDependencies": {
