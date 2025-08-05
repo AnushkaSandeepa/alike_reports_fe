@@ -1,8 +1,9 @@
-// Utilities
+$font-size-custom: 1rem !default;
+
 $utilities: (
-    "font-size-custom": (
-        property: font-size,
-        class: font,
-        values: $font-size-custom
-    )
+  "font-size-custom": (
+    property: font-size,
+    class: font,
+    values: $font-size-custom
+  )
 );

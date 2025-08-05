@@ -6,7 +6,7 @@
   "main": "electron/main.cjs",
   "scripts": {
     "dev:ui": "vite --host",
-    "dev:electron": "set \"NODE_ENV=development\" && wait-on http://localhost:5173 && electron .",
+    "dev:electron": "cross-env NODE_ENV=development wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .",
     "dev": "concurrently -k \"npm run dev:ui\" \"npm run dev:electron\"",
     "build:ui": "vite build",
     "build:electron": "electron-builder --config electron-builder.yml",
@@ -68,7 +68,7 @@
     "react-i18next": "^13.0.2",
     "react-icons": "^4.12.0",
     "react-modal": "^3.16.3",
-    "react-quill": "^2.0.0",
+    "react-quill": "^0.0.2",
     "react-rating": "^2.0.5",
     "react-router-dom": "^6.21.3",
     "react-select": "^5.8.0",
@@ -91,6 +91,7 @@
     "@types/sortablejs": "^1.15.4",
     "@vitejs/plugin-react": "^4.0.3",
     "concurrently": "^9.2.0",
+    "cross-env": "^10.0.0",
     "electron": "^37.2.5",
     "electron-builder": "^26.0.12",
     "eslint": "^8.45.0",
@@ -106,7 +107,7 @@
     "eslint-plugin-react-refresh": "^0.4.3",
     "less": "^4.2.0",
     "prettier": "^3.0.1",
-    "vite": "^4.4.9",
+    "vite": "^7.0.6",
     "wait-on": "^8.0.4"
   }
 }

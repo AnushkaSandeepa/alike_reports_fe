@@ -10,7 +10,7 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
+      preload: path.join(__dirname, "preload.cjs"), 
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -41,37 +41,96 @@ ipcMain.handle('show-open-dialog', async (event, options) => {
   return await dialog.showOpenDialog(options);
 });
 
-// Store spreadsheet with metadata
-ipcMain.handle('store-spreadsheet', async (event, { sourcePath, programType, programDate }) => {
-  try {
-    const baseDir = path.join(app.getPath('userData'), 'uploads');
-    if (!fs.existsSync(baseDir)) fs.mkdirSync(baseDir, { recursive: true });
+// Avoids overwriting by uniquifying the filename if a name collision happens
+const sanitize = (name) => name.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_");
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const safeProgramType = programType.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const safeProgramDate = programDate.replace(/[^0-9-]/g, '');
-    const destFolder = path.join(baseDir, `${safeProgramType}_${safeProgramDate}_${timestamp}`);
-    fs.mkdirSync(destFolder, { recursive: true });
+ipcMain.handle(
+  "store-spreadsheet",
+  async (_, { sourcePath, programType, programDate }) => {
+    try {
+      if (!sourcePath) {
+        throw new Error("sourcePath is required");
+      }
 
-    const fileName = path.basename(sourcePath);
-    const destFilePath = path.join(destFolder, fileName);
-    fs.copyFileSync(sourcePath, destFilePath);
+      const allowedExts = [".csv", ".xls", ".xlsx"];
+      const resolvedSource = path.resolve(sourcePath);
 
-    const metadata = {
-      originalPath: sourcePath,
-      storedAt: destFilePath,
-      programType,
-      programDate,
-      savedOn: new Date().toISOString(),
-    };
-    fs.writeFileSync(
-      path.join(destFolder, 'metadata.json'),
-      JSON.stringify(metadata, null, 2),
-      'utf-8'
-    );
+      // Ensure source exists and is a file
+      let stat;
+      try {
+        stat = await fs.promises.stat(resolvedSource);
+      } catch (e) {
+        throw new Error(`Source file not found or inaccessible: ${e.message}`);
+      }
+      if (!stat.isFile()) {
+        throw new Error("Source path is not a file.");
+      }
 
-    return { success: true, metadata };
-  } catch (err) {
-    return { success: false, error: err.message };
+      // Validate extension
+      const ext = path.extname(resolvedSource).toLowerCase();
+      if (!allowedExts.includes(ext)) {
+        throw new Error(
+          `Unsupported file type "${ext}". Only CSV and Excel files are allowed.`
+        );
+      }
+
+      // Destination base: "uploadings" folder under userData
+      const baseDir = path.join(app.getPath("userData"), "uploadings");
+      await fs.promises.mkdir(baseDir, { recursive: true });
+
+      // Sanitizer
+      const sanitize = (name) =>
+        name.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_").trim();
+
+      // Build safe filename
+      const originalName = path.basename(resolvedSource, ext);
+      const safeOriginal = sanitize(originalName);
+      const safeProgramType = sanitize(String(programType || "general"));
+      const safeProgramDate = sanitize(String(programDate || ""));
+      let fileName = `${safeProgramType}_${safeProgramDate}_${safeOriginal}${ext}`;
+      let destFilePath = path.join(baseDir, fileName);
+
+      // If exists, append timestamp
+      try {
+        await fs.promises.access(destFilePath);
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        fileName = `${safeProgramType}_${safeProgramDate}_${safeOriginal}_${timestamp}${ext}`;
+        destFilePath = path.join(baseDir, fileName);
+      } catch {
+        // doesn't exist, OK
+      }
+
+      // Copy file
+      await fs.promises.copyFile(resolvedSource, destFilePath);
+
+      // Metadata sidecar
+      const metadata = {
+        originalPath: resolvedSource,
+        storedAt: destFilePath,
+        programType,
+        programDate,
+        savedOn: new Date().toISOString(),
+      };
+      const metadataPath = `${destFilePath}.metadata.json`;
+
+      try {
+        await fs.promises.writeFile(
+          metadataPath,
+          JSON.stringify(metadata, null, 2),
+          "utf-8"
+        );
+      } catch (e) {
+        // rollback copied file if metadata fails
+        try {
+          await fs.promises.unlink(destFilePath);
+        } catch {}
+        throw new Error(`Failed to write metadata: ${e.message}`);
+      }
+
+      return { success: true, metadata };
+    } catch (err) {
+      console.error("store-spreadsheet error:", err);
+      return { success: false, error: err.message || "Unknown error" };
+    }
   }
-});
+);
