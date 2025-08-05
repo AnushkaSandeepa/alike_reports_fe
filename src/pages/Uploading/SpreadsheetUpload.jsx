@@ -25,6 +25,8 @@ const SheetUpload = () => {
   const [programType, setProgramType] = useState("");
   const [programDate, setProgramDate] = useState(null);
   const [status, setStatus] = useState("");
+  const [selectedFilePath, setSelectedFilePath] = useState(null);
+  const [fileName, setFileName] = useState(null);
 
   const RequiredAsterisk = () => (
     <small
@@ -36,20 +38,35 @@ const SheetUpload = () => {
     </small>
   );
 
-  const handleFilePickAndUpload = async () => {
-    if (!programType || !programDate) {
-      setStatus("Please select program type and date first.");
+  const handlePickFile = async () => {
+    const result = await window.electronAPI.pickSpreadsheet();
+    if (result.success) {
+      setSelectedFilePath(result.filePath);
+      setFileName(result.filePath.split(/[\\/]/).pop());
+      setStatus("");
+    } else {
+      setStatus("File selection cancelled.");
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!programType || !programDate || !selectedFilePath) {
+      setStatus("Please select type, date, and file.");
       return;
     }
 
-    setStatus("Saving...");
-    const res = await window.electronAPI.pickAndStoreSpreadsheet({
+    setStatus("Uploading...");
+
+    const res = await window.electronAPI.storeSpreadsheet({
+      sourcePath: selectedFilePath,
       programType,
       programDate: programDate.toISOString().slice(0, 10),
     });
 
     if (res.success) {
       setStatus(`Saved to: ${res.metadata.storedAt}`);
+      setSelectedFilePath(null);
+      setFileName(null);
     } else {
       setStatus(`Error saving: ${res.error}`);
     }
@@ -118,13 +135,33 @@ const SheetUpload = () => {
                         Upload Your Spreadsheet
                         <RequiredAsterisk />
                       </h6>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={handleFilePickAndUpload}
-                      >
-                        Select File from Computer
-                      </button>
+
+                      <div className="d-flex flex-column gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={handlePickFile}
+                        >
+                          Choose Spreadsheet File
+                        </button>
+
+                        {fileName && (
+                          <div className="d-flex align-items-center gap-2">
+                            <span role="img" aria-label="csv">📄</span>
+                            <span>{fileName}</span>
+                          </div>
+                        )}
+
+                        {selectedFilePath && (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={handleUpload}
+                          >
+                            Upload File
+                          </button>
+                        )}
+                      </div>
                     </Col>
                   </Row>
                 </Form>
