@@ -1,0 +1,21 @@
+appId: alike.org.alike.alike_reports
+productName: Alike Reports
+directories:
+  output: dist_electron
+files:
+  - dist/**
+  - electron/main.js
+  - electron/preload.js
+publish:
+  provider: github
+  owner: AnushkaSandeepa
+  repo: alike_reports_fe
+win:
+  target:
+    - nsis
+mac:
+  target:
+    - dmg
+linux:
+  target:
+    - AppImage
