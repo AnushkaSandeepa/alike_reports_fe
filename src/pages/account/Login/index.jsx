@@ -28,14 +28,14 @@ export default function Login() {
   const { loading, login, redirectUrl, isAuthenticated } = useLogin();
 
   return (
-    <>
+    <div >
       {isAuthenticated && <Navigate to={redirectUrl} replace />}
 
       <PageBreadcrumb title="Login" />
       <AccountWrapper bottomLinks={<BottomLink />}>
-        <div className="text-center w-75 m-auto">
+        <div className="text-center w-75 m-auto ">
           <h4 className="text-dark-50 text-center mt-0 fw-bold">{t('LOGIN')}</h4>
-          <p className="text-muted mb-4">
+          <p className="text-muted mb-4 pt-2">
             {t('Enter your email and phone number to verify access into Data Analysis platform.')}
           </p>
         </div>
@@ -73,13 +73,13 @@ export default function Login() {
             defaultChecked
           /> */}
 
-          <div className="mb-3 text-center">
+          <div className="mb-3 text-center pt-3" >
             <Button className='btn-alike' type="submit" disabled={loading}>
               {t('Log In')}
             </Button>
           </div>
         </Form>
       </AccountWrapper>
-    </>
+    </div>
   );
 }
