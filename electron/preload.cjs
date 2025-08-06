@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("electronAPI", {
-  // 1. File picker — only pick, no upload
+  // File picker — only pick, no upload
   pickSpreadsheet: async () => {
     const result = await ipcRenderer.invoke("show-open-dialog", {
       title: "Select spreadsheet",
@@ -16,7 +16,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return { success: true, filePath: result.filePaths[0] };
   },
 
-  // 2. Upload separately
+
+  // Upload the selected spreadsheet
   storeSpreadsheet: async ({ sourcePath, programType, programDate }) => {
     return await ipcRenderer.invoke("store-spreadsheet", {
       sourcePath,
@@ -24,4 +25,17 @@ contextBridge.exposeInMainWorld("electronAPI", {
       programDate,
     });
   },
+
+  // Load uploaded metadata
+  getUploadedSheets: async () => {
+    return await ipcRenderer.invoke("get-uploaded-spreadsheets");
+  },
+
+  // Open folder in file explorer
+  openUploadFolder: () => ipcRenderer.send("open-upload-folder"),
+
+  // Delete a spreadsheet by fileId
+  deleteSpreadsheet: (fileId) => ipcRenderer.invoke("delete-spreadsheet", fileId),
+  
+
 });

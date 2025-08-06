@@ -1,121 +1,58 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import TableContainer from "@/pages/SheetList/TableContainer";
-
 import { FaTrash, FaEye } from "react-icons/fa";
 
 function EventSheetsTable() {
-  const [sheetData, setSheetData] = useState([
-    {
-      name: "Jennifer Chang",
-      position: "Regional Director",
-      age: 28,
-      office: "Singapore",
-      startDate: "2010/11/14",
-      sheet_type: "Networking Event",
-      status: "Active"
-    },
-    {
-      name: "Gavin Joyce",
-      position: "Developer",
-      age: 42,
-      office: "Edinburgh",
-      startDate: "2010/12/22",
-      sheet_type: "Networking Event",
-      status: "Active"
-    },
-    {
-      name: "Angelica Ramos",
-      position: "Chief Executive Officer (CEO)",
-      age: 47,
-      office: "London",
-      startDate: "2009/10/09",
-      sheet_type: "Networking Event",
-      status: "Active"
-    },
-    {
-      name: "Doris Wilder",
-      position: "Sales Assistant",
-      age: 23,
-      office: "Sidney",
-      startDate: "2010/09/20",
-      sheet_type: "Networking Event",
-      status: "Active"
-    },
-    {
-      name: "Caesar Vance",
-      position: "Pre-Sales Support",
-      age: 21,
-      office: "New York",
-      startDate: "2011/12/12",
-      sheet_type: "Networking Event",
-      status: "Inactive"
-    },
-    {
-      name: "Yuri Berry",
-      position: "Chief Marketing Officer (CMO)",
-      age: 40,
-      office: "New York",
-      startDate: "2009/06/25",
-      sheet_type: "Workshop",
-      status: "Active"
-    },
-    {
-      name: "Jenette Caldwell",
-      position: "Development Lead",
-      age: 30,
-      office: "New York",
-      startDate: "2011/09/03",
-      sheet_type: "Workshop",
-      status: "Inactive"
-    },
-    {
-      name: "Dai Rios",
-      position: "Personnel Lead",
-      age: 35,
-      office: "Edinburgh",
-      startDate: "2012/09/26",
-      sheet_type: "Workshop",
-      status: "Active"
-    },
-    {
-      name: "Bradley Greer",
-      position: "Software Engineer",
-      age: 41,
-      office: "London",
-      startDate: "2012/10/13",
-      sheet_type: "Workshop",
-      status: "Active"
-    },
-    {
-      name: "Gloria Little",
-      position: "Systems Administrator",
-      age: 59,
-      office: "New York",
-      startDate: "2009/04/10",
-      sheet_type: "Workshop",
-      status: "Active"
-    }
-  ]);
+  const [sheetData, setSheetData] = useState([]);
 
-  const handleDelete = (rowIndex) => {
+  // Fetch metadata on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      const res = await window.electronAPI.getUploadedSheets();
+      if (res.success) {
+        // Format the metadata to match table shape
+        const formatted = res.data.map((item, index) => ({
+          row_id: index + 1, // Fake ID
+          fileId: item.fileId,
+          name: item.storedAt.split(/[\\/]/).pop(),
+          sheet_type: item.programType,
+          startDate: item.savedOn.slice(0, 10),
+          status: "Active", // You can add real status logic later
+          fullPath: item.storedAt
+        }));
+        setSheetData(formatted);
+      } else {
+        console.error("Failed to load uploaded sheets:", res.error);
+      }
+    };
+    fetchData();
+  }, []);
+
+const handleDelete = async (rowIndex) => {
+  const fileIdToDelete = sheetData[rowIndex].fileId;
+  const res = await window.electronAPI.deleteSpreadsheet(fileIdToDelete);
+  if (res.success) {
     const updated = [...sheetData];
     updated.splice(rowIndex, 1);
     setSheetData(updated);
-  };
+  } else {
+    alert("Failed to delete: " + (res.error || "Unknown error"));
+  }
+};
 
-  const handlePreview = (rowData) => {
-    // alert(`Preview clicked for file: ${rowData.name}`);
-    const fileUrl = "https://excel.officeapps.live.com/x/_layouts/XlFileHandler.aspx?WOPISrc=https://wopi.readthedocs.io/en/latest/_static/contoso.xlsx";
-    window.open(`https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(fileUrl)}`);
 
-  };
 
   const columns = useMemo(
     () => [
       {
+        Header: "Row ID",
+        accessor: "row_id",
+        width: 100
+      },
+      {
         Header: "File ID",
-        accessor: "age",
+        accessor: "fileId",
         width: 100
       },
       {
@@ -141,16 +78,6 @@ function EventSheetsTable() {
         maxWidth: 250
       },
       {
-        Header: "Preview",
-        width: 100,
-        Cell: ({ row }) => (
-          <FaEye
-            style={{ cursor: "pointer", color: "#17a2b8" }}
-            onClick={() => handlePreview(row.original)}
-          />
-        )
-      },
-      {
         Header: "Delete",
         width: 100,
         Cell: ({ row }) => (
@@ -164,7 +91,7 @@ function EventSheetsTable() {
     [sheetData]
   );
 
-  document.title = "Sheet Table | Skote - React Admin & Dashboard";
+  document.title = "Sheet Table | Alike Reports";
 
   return (
     <div className="page-content">

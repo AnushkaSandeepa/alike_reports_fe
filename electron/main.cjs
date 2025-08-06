@@ -2,6 +2,8 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { shell } = require('electron');
+
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -44,6 +46,29 @@ ipcMain.handle('show-open-dialog', async (event, options) => {
 // Avoids overwriting by uniquifying the filename if a name collision happens
 const sanitize = (name) => name.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_");
 
+function getNextId(idFilePath) {
+  let lastId = 0;
+
+  // Try to read the last used ID from file
+  try {
+    const content = fs.readFileSync(idFilePath, 'utf-8');
+    lastId = parseInt(content, 10);
+    if (isNaN(lastId)) lastId = 0;
+  } catch {
+    // If file doesn't exist or is unreadable, start from 0
+    lastId = 0;
+  }
+
+  const nextId = lastId + 1;
+
+  // Save the new ID back to the file
+  fs.writeFileSync(idFilePath, String(nextId), 'utf-8');
+
+  // Return formatted ID
+  return "SS" + nextId.toString().padStart(4, "0");
+}
+
+
 ipcMain.handle(
   "store-spreadsheet",
   async (_, { sourcePath, programType, programDate }) => {
@@ -60,6 +85,14 @@ ipcMain.handle(
       if (!allowedExts.includes(ext)) {
         throw new Error(`Unsupported file type "${ext}".`);
       }
+
+      const baseDir = path.join(app.getPath("documents"), "uploadfiles"); // your folder inside Documents
+      await fs.promises.mkdir(baseDir, { recursive: true });
+
+      // Generate ID here:
+      const idFilePath = path.join(baseDir, "last_id.txt");
+      const id = getNextId(idFilePath); 
+
 
       // Folder to store spreadsheets
       const spreadsheetDir = path.join(app.getPath("userData"), "UploadFile");
@@ -85,6 +118,7 @@ ipcMain.handle(
 
       // Metadata
       const metadata = {
+        fileId: id,
         originalPath: resolvedSource,
         storedAt: destFilePath,
         programType,
@@ -120,4 +154,70 @@ ipcMain.handle(
     }
   }
 );
+
+
+// Fetch uploaded spreadsheets metadata
+ipcMain.handle("get-uploaded-spreadsheets", async () => {
+  try {
+    const documentsDir = path.join(app.getPath("userData"), "Documents");
+    const metadataDbPath = path.join(documentsDir, "uploads_db.json");
+
+    const data = await fs.promises.readFile(metadataDbPath, "utf-8");
+    const parsed = JSON.parse(data);
+
+    return { success: true, data: parsed };
+  } catch (err) {
+    console.error("Failed to read uploads_db.json:", err);
+    return { success: false, error: err.message };
+  }
+});
+
+
+const uploadFolder = path.join(app.getPath("userData"), "UploadFile");
+
+ipcMain.on("open-upload-folder", () => {
+  shell.openPath(uploadFolder);
+});
+
+// delete spreadsheet by fileId
+ipcMain.handle("delete-spreadsheet", async (_, fileId) => {
+  try {
+    if (!fileId) throw new Error("fileId is required");
+
+    const documentsDir = path.join(app.getPath("userData"), "Documents");
+    const metadataDbPath = path.join(documentsDir, "uploads_db.json");
+
+    // Read current metadata DB
+    const data = await fs.promises.readFile(metadataDbPath, "utf-8");
+    let allMetadata = JSON.parse(data);
+
+    // Find the item to delete
+    const itemIndex = allMetadata.findIndex(item => item.fileId === fileId);
+    if (itemIndex === -1) {
+      throw new Error("File metadata not found");
+    }
+
+    const item = allMetadata[itemIndex];
+
+    // Delete the actual file from storedAt path
+    try {
+      await fs.promises.unlink(item.storedAt);
+    } catch (err) {
+      console.warn("File deletion error (maybe already deleted?):", err.message);
+    }
+
+    // Remove metadata from array
+    allMetadata.splice(itemIndex, 1);
+
+    // Write updated metadata back to DB file
+    await fs.promises.writeFile(metadataDbPath, JSON.stringify(allMetadata, null, 2), "utf-8");
+
+    return { success: true };
+  } catch (err) {
+    console.error("delete-spreadsheet error:", err);
+    return { success: false, error: err.message || "Unknown error" };
+  }
+});
+
+
 
