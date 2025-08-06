@@ -15,7 +15,8 @@ const Hero = () => {
 				<Container className={`hero-contain d-flex justify-content-center text-center ${showContent ? 'show' : ''}`} style={{ marginTop: "100px" }}>
 				<div>
 				  <img width={'180px'} src={bmw_logo} alt="BMW Logo" />
-				  <p className="mb-4 text-white-50 hero-sub-title">Report Generating Center</p>
+				  <h1 className="hero-title">Welcome !</h1>
+				  <p className="mb-4 text-white-50 hero-sub-title">Data Analysis Platform</p>
 				  {!spinnerTime ?
 					<div className='hero-spinner' >
 				  	<BarLoader color="#36d7b7" width={250} />

@@ -119,7 +119,7 @@ const SheetUpload = () => {
               <CardBody>
                 <Form>
                   <Row>
-                    <Col md={3} className="mb-3">
+                    <Col md={4} className="mb-3">
                       <h6 className="card-title">
                         Select Program Type
                         {!programType && <RequiredAsterisk />}
@@ -137,7 +137,7 @@ const SheetUpload = () => {
                       </select>
                     </Col>
 
-                    <Col md={3} className="mb-3">
+                    <Col md={4} className="mb-3">
                       <h6 className="card-title">
                         Select Program Date
                         {!programDate && <RequiredAsterisk />}
@@ -237,7 +237,7 @@ const SheetUpload = () => {
                         {selectedFilePath && (
                           <button
                             type="button"
-                            className="btn btn-primary"
+                            className="btn btn-alike"
                             onClick={handleUpload}
                           >
                             Upload Spreadsheet

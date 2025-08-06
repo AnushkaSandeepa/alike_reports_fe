@@ -34,9 +34,9 @@ export default function Login() {
       <PageBreadcrumb title="Login" />
       <AccountWrapper bottomLinks={<BottomLink />}>
         <div className="text-center w-75 m-auto">
-          <h4 className="text-dark-50 text-center mt-0 fw-bold">{t('Sign In')}</h4>
+          <h4 className="text-dark-50 text-center mt-0 fw-bold">{t('LOGIN')}</h4>
           <p className="text-muted mb-4">
-            {t('Enter your username and password to access admin panel.')}
+            {t('Enter your email and phone number to verify access into Data Analysis platform.')}
           </p>
         </div>
 
@@ -49,23 +49,21 @@ export default function Login() {
             <Col>
               <TextInput
                 name="email"
-                label={t('Email Address')}
+                label={t('Organization Email Address')}
                 type="email"
-                placeholder={t('Enter your email')}
+                placeholder={t('email@alike.org.au')}
                 containerClass="mb-3"
               />
             </Col>
           </Row>
-          <PasswordInput
-            label={t('Password')}
+          <TextInput
+            label={t('Phone Number')}
             name="password"
-            placeholder={t('Enter your password')}
+            placeholder={t('04x xxxx xxxx')}
             containerClass="mb-3"
           >
-            <Link to="/account/recover-password" className="text-muted float-end">
-              <small>Forgot your password?</small>
-            </Link>
-          </PasswordInput>
+            
+          </TextInput>
 
           {/* <CheckInput
             name="rememberme"
@@ -76,7 +74,7 @@ export default function Login() {
           /> */}
 
           <div className="mb-3 text-center">
-            <Button variant="primary" type="submit" disabled={loading}>
+            <Button className='btn-alike' type="submit" disabled={loading}>
               {t('Log In')}
             </Button>
           </div>

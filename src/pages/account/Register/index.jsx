@@ -33,10 +33,10 @@ export default function Register() {
 			<PageBreadcrumb title="Register" />
 			<AccountWrapper bottomLinks={<BottomLink />}>
 				<div className="text-center w-75 m-auto">
-					<h4 className="text-dark-50 text-center mt-0 fw-bold">{t('Free Sign Up')}</h4>
+					<h4 className="text-dark-50 text-center mt-0 fw-bold">{t('Get Started with Free On Board')}</h4>
 					<p className="text-muted mb-4">
 						{t(
-							"Don't have an account? Create your account, it takes less than a minute"
+							"No account yet? Join our Data Analysis Platform in under a minute and unlock your insights."
 						)}
 					</p>
 				</div>
@@ -52,30 +52,25 @@ export default function Register() {
 					}}
 				>
 					<TextInput
-						label={t('Full name')}
+						label={t('Full Name')}
 						type="text"
 						name="username"
 						placeholder={t('Enter your name')}
 						containerClass="mb-3"
 					/>
 					<TextInput
-						label={t('Email Address')}
+						label={t('Organization Email Address')}
 						type="text"
 						name="email"
-						placeholder={t('Enter your email')}
-						containerClass="mb-3"
-					/>
-					<PasswordInput
-						label={t('Password')}
-						name="password1"
-						placeholder={t('Enter password')}
+						placeholder={t('email@alike.org.au')}
 						containerClass="mb-3"
 					/>
 
-					<PasswordInput
-						label={t('Confirm Password')}
-						name="password2"
-						placeholder={t('Confirm password')}
+					<TextInput
+						label={t('Phone Number')}
+						type="text"
+						name="phone"
+						placeholder={t('04x xxxx xxxx')}
 						containerClass="mb-3"
 					/>
 
@@ -95,7 +90,7 @@ export default function Register() {
 					/>
 
 					<div className="mb-3 text-center">
-						<Button variant="primary" type="submit" disabled={loading}>
+						<Button className='btn-alike' type="submit" disabled={loading}>
 							{t('Sign Up')}
 						</Button>
 					</div>

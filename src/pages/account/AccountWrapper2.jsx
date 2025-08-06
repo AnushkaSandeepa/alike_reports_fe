@@ -19,7 +19,7 @@ const AccountWrapper2 = ({ bottomLinks, children }) => {
 					<div className="auth-brand text-center text-lg-start">
 						<Link to="/" className="logo-dark">
 							<span>
-								<img src={LogoDark} alt="" height={22} />
+								<img src={LogoLight} alt="" height={22} />
 							</span>
 						</Link>
 						<Link to="/" className="logo-light">
@@ -43,7 +43,7 @@ const AccountWrapper2 = ({ bottomLinks, children }) => {
 						{t("It's a elegent templete. I love it very much! .")}
 						<i className="mdi mdi-format-quote-close"></i>
 					</p>
-					<p>{t('- Hyper Admin User')}</p>
+					<p>{t('- Alike Admin User')}</p>
 				</div>
 			</div>
 		</div>

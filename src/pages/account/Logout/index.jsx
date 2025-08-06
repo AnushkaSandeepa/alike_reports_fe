@@ -17,12 +17,11 @@ const Logout = () => {
 				<Row>
 					<Col md={4}></Col>
 					<Col md={4} >
-						<div style={{paddingTop:"30px"}}>
+						<div style={{paddingTop:"40px"}}>
 							<div className="text-center pt-5">
 								<img width={'120px'} src={bmw_logo} alt="BMW Logo" />
-								<h2 className='pt-2 pb-4 brand-title'>Alike WA</h2>
 							</div>
-							<div className="text-center w-75 m-auto">
+							<div className="text-center w-75 m-auto pt-4">
 								<h4 className="text-dark-50 text-center mt-0 fw-bold">
 									{t('See You Again !')}
 								</h4>
@@ -82,7 +81,7 @@ const Logout = () => {
 							</div>
 						</div>
 						<div className="mt-5 text-center">
-							<Link to="/account/loginnew" >
+							<Link to="/account/login" >
 								<label ><span style={{color:"#064D5F" , fontWeight:400 }}>Retern to</span>
 								{t(' Login')}
 								</label>

@@ -49,6 +49,6 @@ export default function ProtectedRoutes() {
 			</Route>
 		</ReactRoutes>
 	) : (
-		<Navigate to="/account/login" replace />
+		<Navigate to="./landing" replace />
 	);
 }
