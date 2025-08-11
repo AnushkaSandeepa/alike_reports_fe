@@ -134,7 +134,7 @@ const series = [
 
                 {/* Comments */}
                 <div style={{ marginTop: "20px" }}>
-                    <h6>Comments:</h6>
+                    <h6>Additional feedback:</h6>
                     <ul>
                         <li>“I found the conflict resolution hints and tips most valuable”</li>
                         <li>“An interesting, informative workshop!”</li>

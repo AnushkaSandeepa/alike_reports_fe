@@ -1,4 +1,4 @@
-import React, { Fragment } from "react";
+import React, { Fragment, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import {
   useTable,
@@ -106,6 +106,34 @@ const EventReportTableContainer = ({
     const page = event.target.value ? Number(event.target.value) - 1 : 0;
     gotoPage(page);
   };
+
+  const [programType, setProgramType] = useState("");
+  const [spreadsheet, setSpreadsheet] = useState("");
+  const [allSheets, setAllSheets] = useState([]);
+  const [loadingSheets, setLoadingSheets] = useState(false);
+
+  // Fetch uploaded spreadsheets on mount
+  useEffect(() => {
+    const fetchSheets = async () => {
+      setLoadingSheets(true);
+      const result = await window.electronAPI.getUploadedSheets();
+      console.log("Fetched sheets:", result.data);
+      if (result.success) {
+        setAllSheets(result.data); // array of { fileId, programType, storedAt, ... }
+      } else {
+        console.error(result.error);
+      }
+      setLoadingSheets(false);
+    };
+
+    fetchSheets();
+  }, []);
+
+  // Filter spreadsheets for the selected program type
+  const filteredSheets = programType
+    ? allSheets.filter(sheet => String(sheet.programType) === programType)
+    : [];
+
   return (
     <Fragment>
       <Stack className="py-3 mb-3" alignItems="center" justifyContent="space-between">
@@ -118,31 +146,59 @@ const EventReportTableContainer = ({
         <CardTitle tag="h5" className="mb-3">
           Generate Your Program Evaluation Report
         </CardTitle>
-        <Row className="mb-2">
-          <Col md={3} className="mb-3">
-              <h6 className="card-title">Select Program Type</h6>
-              <select defaultValue="0" className="form-select">
-                <option value="0">Select Type</option>
-                <option value="1">Networking Events </option>
-                <option value="2">Workshop</option>
-              </select>
+        <Row>
+          {/* Program Type */}
+          <Col md={3}>
+            <h6>Select Program Type</h6>
+            <select
+              value={programType}
+              onChange={(e) => {
+                setProgramType(e.target.value);
+                setSpreadsheet("");
+              }}
+              className="form-select"
+            >
+              <option value="">Select Type</option>
+              <option value="networking_events">Networking Events</option>
+              <option value="workshop">Workshop</option>
+              {/* add more if needed */}
+            </select>
           </Col>
-          <Col md={5} className="mb-3">
-              <h6 className="card-title">Select Program's Spreadsheet</h6>
-              <select defaultValue="0" className="form-select">
-                <option value="0">Select the Sheet</option>
-                <option value="1">Event Planning 2025-26(1-8)</option>
-                <option value="2">Grants and Fundraising 2025-26(1-12)</option>
-                <option value="3">How to Facilitate a Support Group 2025(1-44)</option>
-              </select>
+
+          {/* Spreadsheet */}
+          <Col md={6}>
+            <h6>Select Program's Spreadsheet</h6>
+            <select
+              value={spreadsheet}
+              onChange={(e) => setSpreadsheet(e.target.value)}
+              className="form-select"
+              disabled={!programType || loadingSheets}
+            >
+              <option value="">
+                {loadingSheets ? "Loading..." : "Select the Sheet"}
+              </option>
+              {filteredSheets.map(sheet => (
+                <option key={sheet.fileId} value={sheet.storedAt}>
+                  {sheet.fileId} — {sheet.storedAt.split(/[/\\]/).pop()}
+                </option>
+              ))}
+            </select>
           </Col>
-              
-                                
-          
-          
-          <div>
-          <button className="btn-alike">Generate</button>
-          </div>        
+
+          {/* Generate Button */}
+          <Col md="auto" className="d-flex align-items-end">
+            <button
+              className="btn-alike"
+              onClick={() => {
+                console.log("Generate report for:", spreadsheet)
+                window.electronAPI.generateReport(spreadsheet)
+                console.log("passed the function")
+              }}
+               disabled={!programType || !spreadsheet}
+            >
+              Generate
+            </button>
+          </Col>
         </Row>
 
       </Card>

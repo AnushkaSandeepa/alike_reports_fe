@@ -1,3 +1,4 @@
+// electron/preload.cjs
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("electronAPI", {
@@ -15,7 +16,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
     return { success: true, filePath: result.filePaths[0] };
   },
-
 
   // Upload the selected spreadsheet
   storeSpreadsheet: async ({ sourcePath, programType, programDate }) => {
@@ -36,6 +36,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Delete a spreadsheet by fileId
   deleteSpreadsheet: (fileId) => ipcRenderer.invoke("delete-spreadsheet", fileId),
-  
 
+  // Run Python report generator for a file
+  generateReport: async ({ spreadsheetId, spreadsheetPath, programType }) => {
+    return await ipcRenderer.invoke("generate-report", {
+      spreadsheetId,
+      spreadsheetPath,
+      programType
+    });
+  }
+  
 });
