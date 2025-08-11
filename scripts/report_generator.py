@@ -33,6 +33,13 @@ def convert_to_numeric(df, cols):
             df_copy[col] = pd.to_numeric(df_copy[col], errors="coerce")
     return df_copy
 
+def get_secure_documents_path():
+    """Get secure Documents folder inside AppData/Roaming/<AppName>."""
+    app_name = "hyper-react-js"  # change to your Electron app name
+    base_dir = Path.home() / "AppData" / "Roaming" / app_name / "Documents"
+    base_dir.mkdir(parents=True, exist_ok=True)
+    return base_dir
+
 def calculate_confidence_scores(file_path):
     spreadsheet_path = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else os.path.abspath(file_path)
     df = pd.read_excel(spreadsheet_path)
@@ -78,7 +85,9 @@ def calculate_confidence_scores(file_path):
             "post_percent": round(post_avg_conf, 3),
             "increase_percent": round(confidence_increase, 3),
             "satisfaction_rate": round(satisfaction_rate, 3)
-        }
+        },
+        "generated_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
+
     }
 
     # Add Additional feedback array if present and not empty
@@ -88,10 +97,12 @@ def calculate_confidence_scores(file_path):
         if feedback_list:
             result["additional_feedback"] = feedback_list
 
-    # Save JSON DB
-    json_db_path = Path(file_path).parent / "confidence_data_db.json"
+    # Save JSON DB in secure AppData/Roaming/<AppName>/Documents
+    secure_dir = get_secure_documents_path()
+    json_db_path = secure_dir / "confidence_data_db.json"
+
     if json_db_path.exists():
-        with open(json_db_path, "r") as f:
+        with open(json_db_path, "r", encoding="utf-8") as f:
             db_data = json.load(f)
     else:
         db_data = []

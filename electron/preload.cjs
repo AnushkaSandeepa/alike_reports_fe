@@ -44,6 +44,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
       spreadsheetPath,
       programType
     });
-  }
-  
+  },
+
+  getReports: () => ipcRenderer.invoke("get-reports")
+
 });

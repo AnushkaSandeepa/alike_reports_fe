@@ -1,13 +1,13 @@
-const path = require("path");
+const { app, BrowserWindow, ipcMain } = require("electron");
 const fs = require("fs");
+const path = require("path");
 const { spawn } = require("child_process");
-const { app } = require("electron");
 
 module.exports = function (ipcMain) {
-  const uploadsDir = path.join(app.getPath("documents"), "MyReports");
-  const reportsDbPath = path.join(uploadsDir, "reports_db.json");
 
-  // Ensure uploads folder exists
+    const uploadsDir = path.join(app.getPath("userData"), "Documents");
+  const reportsDbPath = path.join(uploadsDir, "confidence_data_db.json");
+  // Ensure folder exists
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
   }
@@ -22,12 +22,6 @@ module.exports = function (ipcMain) {
       const pythonPath = process.platform === "win32" ? "python" : "python3";
       const scriptPath = path.join(__dirname, "..", "scripts", "report_generator.py");
 
-      console.log("🔍 Running Python script:", scriptPath);
-      console.log("📂 Spreadsheet path:", spreadsheetPath);
-      console.log("🆔 Spreadsheet ID:", spreadsheetId);
-      console.log("📌 Program type:", programType);
-
-      // Pass spreadsheet path, spreadsheetId, and programType to Python
       const py = spawn(pythonPath, [scriptPath, spreadsheetPath, spreadsheetId, programType], {
         cwd: __dirname,
         shell: false
@@ -37,25 +31,14 @@ module.exports = function (ipcMain) {
       let errorString = "";
 
       py.stdout.on("data", (data) => {
-        const text = data.toString();
-        console.log(`🐍 Python stdout: ${text}`);
-        dataString += text;
+        dataString += data.toString();
       });
 
       py.stderr.on("data", (data) => {
-        const text = data.toString();
-        console.error(`🐍 Python stderr: ${text}`);
-        errorString += text;
-      });
-
-      py.on("error", (err) => {
-        console.error("❌ Failed to start Python process:", err);
-        reject(err);
+        errorString += data.toString();
       });
 
       py.on("close", (code) => {
-        console.log(`🐍 Python process exited with code ${code}`);
-
         if (code !== 0) {
           return reject(new Error(errorString || `Python exited with code ${code}`));
         }
@@ -83,5 +66,29 @@ module.exports = function (ipcMain) {
       success: false,
       error: err.message
     }));
+  });
+
+  
+
+  // Make sure folder exists
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
+  // Make sure DB file exists
+  if (!fs.existsSync(reportsDbPath)) {
+    fs.writeFileSync(reportsDbPath, JSON.stringify([]), "utf-8");
+  }
+
+  // 📂 Get list of reports
+  ipcMain.handle("get-reports", async () => {
+    try {
+      const rawData = await fs.promises.readFile(reportsDbPath, "utf8");
+      return JSON.parse(rawData);
+      console.log("📂 Read reports list:", rawData) ;
+    } catch (err) {
+      console.error("❌ Error reading reports list:", err);
+      return [];
+    }
   });
 };
