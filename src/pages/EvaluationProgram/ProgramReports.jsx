@@ -191,8 +191,12 @@ const EventReportTableContainer = ({
               className="btn-alike"
               onClick={() => {
                 console.log("Generate report for:", spreadsheet)
-                window.electronAPI.generateReport(spreadsheet)
-                console.log("passed the function")
+                window.electronAPI.generateReport({
+                  spreadsheetId: filteredSheets.find(s => s.storedAt === spreadsheet)?.fileId,
+                  spreadsheetPath: spreadsheet,
+                  programType: programType
+                });
+
               }}
                disabled={!programType || !spreadsheet}
             >
