@@ -23,74 +23,50 @@ AGREEMENT_MAP = {
     "Not Applicable": 0
 }
 
+def convert_to_numeric(df, cols):
+    """Convert both confidence and agreement columns to numeric."""
+    df_copy = df.copy()
+    for col in cols:
+        if col in df_copy:
+            df_copy[col] = df_copy[col].map(CONFIDENCE_MAP).fillna(df_copy[col])
+            df_copy[col] = df_copy[col].map(AGREEMENT_MAP).fillna(df_copy[col])
+            df_copy[col] = pd.to_numeric(df_copy[col], errors="coerce")
+    return df_copy
+
 def calculate_confidence_scores(file_path):
-    # Read Excel file
     spreadsheet_path = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else os.path.abspath(file_path)
     df = pd.read_excel(spreadsheet_path)
 
-    # Identify the before/after indicator column
-    before_after_col = "Please mark whether this feedback is for before or after the workshop."
-    if before_after_col not in df.columns:
-        raise ValueError(f"Column '{before_after_col}' not found in spreadsheet")
+    # Locate the workshop before/after marker column
+    marker_col = "Please mark whether this feedback is for before or after the workshop."
+    if marker_col not in df.columns:
+        raise ValueError(f"Column '{marker_col}' not found in spreadsheet")
 
-    # Get all columns after before/after (excluding Additional feedback)
-    start_index = df.columns.get_loc(before_after_col) + 1
-    selected_cols = [
-        col for col in df.columns[start_index:]
-        if col != "Additional feedback"
+    marker_idx = df.columns.get_loc(marker_col)
+
+    # Identify groups of columns
+    pre_cols = df.columns[marker_idx + 1 : marker_idx + 4]
+    post_cols = df.columns[marker_idx + 4 : marker_idx + 7]
+    satisfaction_cols = [
+        col for col in df.columns[marker_idx + 7 :] if col != "Additional feedback"
     ]
 
-    # Keep only text-based columns (exclude numeric)
-    selected_cols = [
-        col for col in selected_cols
-        if not pd.api.types.is_numeric_dtype(df[col])
-    ]
+    # Convert to numeric
+    df_pre = convert_to_numeric(df, pre_cols)
+    df_post = convert_to_numeric(df, post_cols)
+    df_satis = convert_to_numeric(df, satisfaction_cols)
 
-    # Split into before and after groups
-    before_df = df[df[before_after_col] == "Before"]
-    after_df = df[df[before_after_col] == "After"]
-
-    # Keep only non-empty columns for each group
-    pre_cols = [col for col in selected_cols if before_df[col].notnull().any()]
-    post_cols = [col for col in selected_cols if after_df[col].notnull().any()]
-
-    # Map responses according to correct scale
-    def convert_responses(df_group, cols):
-        df_copy = df_group.copy()
-        for col in cols:
-            unique_vals = set(df_copy[col].dropna().unique())
-            if unique_vals.issubset(CONFIDENCE_MAP.keys()):
-                df_copy[col] = df_copy[col].map(CONFIDENCE_MAP)
-            elif unique_vals.issubset(AGREEMENT_MAP.keys()):
-                df_copy[col] = df_copy[col].map(AGREEMENT_MAP)
-        return df_copy[cols]
-
-    pre_df = convert_responses(before_df, pre_cols)
-    post_df = convert_responses(after_df, post_cols)
-
-    # Separate confidence and agreement columns
-    confidence_pre_cols = [col for col in pre_cols if set(before_df[col].dropna().unique()).issubset(CONFIDENCE_MAP.keys())]
-    confidence_post_cols = [col for col in post_cols if set(after_df[col].dropna().unique()).issubset(CONFIDENCE_MAP.keys())]
-
-    agreement_cols = [
-        col for col in selected_cols
-        if set(df[col].dropna().unique()).issubset(AGREEMENT_MAP.keys())
-    ]
-
-    # Calculate pre/post confidence percentages
-    pre_avg_conf = pre_df[confidence_pre_cols].mean(axis=1).mean() / 4 * 100 if confidence_pre_cols else 0
-    post_avg_conf = post_df[confidence_post_cols].mean(axis=1).mean() / 4 * 100 if confidence_post_cols else 0
+    # Calculate percentages
+    pre_avg_conf = df_pre[pre_cols].mean().mean() / 4 * 100 if not df_pre[pre_cols].empty else 0
+    post_avg_conf = df_post[post_cols].mean().mean() / 4 * 100 if not df_post[post_cols].empty else 0
     confidence_increase = post_avg_conf - pre_avg_conf
 
-    # Calculate satisfaction rate
-    agreement_df = df[agreement_cols].apply(lambda col: col.map(AGREEMENT_MAP))
-    satisfaction_rate = agreement_df.mean(axis=1).mean() / 5 * 100 if not agreement_df.empty else 0
+    satisfaction_rate = df_satis[satisfaction_cols].mean().mean() / 5 * 100 if not df_satis[satisfaction_cols].empty else 0
 
     # Metadata
-    spreadsheet_name = Path(file_path).stem
-    spreadsheet_path = sys.argv[1]
-    spreadsheet_id = sys.argv[2]
-    program_type = sys.argv[3]
+    spreadsheet_name = Path(spreadsheet_path).stem
+    spreadsheet_id = sys.argv[2] if len(sys.argv) > 2 else ""
+    program_type = sys.argv[3] if len(sys.argv) > 3 else ""
 
     result = {
         "spreadsheet_id": spreadsheet_id,
@@ -122,6 +98,6 @@ def calculate_confidence_scores(file_path):
     return result
 
 if __name__ == "__main__":
-    file_path = "Grants and Fundraising 2025-26(1-12).xlsx"  # Change if needed
+    file_path = "Grants and Fundraising dd 2025-26(1-12).xlsx"  # Change if needed
     report = calculate_confidence_scores(file_path)
     print(report)
