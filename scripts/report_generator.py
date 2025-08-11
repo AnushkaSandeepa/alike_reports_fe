@@ -13,7 +13,7 @@ CONFIDENCE_MAP = {
     "Extremely confident": 4
 }
 
-# Mapping for agreement levels (updated rules)
+# Mapping for agreement levels
 AGREEMENT_MAP = {
     "Strongly Agree": 5,
     "Agree": 4,
@@ -81,6 +81,13 @@ def calculate_confidence_scores(file_path):
         }
     }
 
+    # Add Additional feedback array if present and not empty
+    if "Additional feedback" in df.columns:
+        feedback_values = df["Additional feedback"].dropna().astype(str).str.strip()
+        feedback_list = [fb for fb in feedback_values if fb]
+        if feedback_list:
+            result["additional_feedback"] = feedback_list
+
     # Save JSON DB
     json_db_path = Path(file_path).parent / "confidence_data_db.json"
     if json_db_path.exists():
@@ -91,8 +98,8 @@ def calculate_confidence_scores(file_path):
 
     db_data.append(result)
 
-    with open(json_db_path, "w") as f:
-        json.dump(db_data, f, indent=4)
+    with open(json_db_path, "w", encoding="utf-8") as f:
+        json.dump(db_data, f, indent=4, ensure_ascii=False)
 
     print(f"Report saved to {json_db_path}")
     return result

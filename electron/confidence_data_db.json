@@ -34,5 +34,24 @@
             "increase_percent": 30.556,
             "satisfaction_rate": 81.212
         }
+    },
+    {
+        "spreadsheet_id": "SS0013",
+        "spreadsheet_name": "workshop_2025-08-05_Grants and Fundraising 2025-26(1-12)",
+        "program_type": "workshop",
+        "spreadsheet_path": "C:\\Users\\AnushkaDissanayakaMu\\AppData\\Roaming\\hyper-react-js\\UploadFile\\workshop_2025-08-05_Grants and Fundraising 2025-26(1-12).xlsx",
+        "confidence_data": {
+            "pre_percent": 29.167,
+            "post_percent": 77.778,
+            "increase_percent": 48.611,
+            "satisfaction_rate": 95.556
+        },
+        "additional_feedback": [
+            "This was an informative session, and enjoyed very much; good to do a mix of practice and theory. Thank you very, very much.",
+            "Straight forward and easy to follow the content.",
+            "This session was extremely helpful to me and took the mystery out of the subject.",
+            "-Excellent practical resources - Tailored/individualised workshop activities",
+            "Great presenter and very tailored session for participants."
+        ]
     }
 ]
