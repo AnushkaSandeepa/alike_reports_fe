@@ -56,6 +56,9 @@ const EventReportTableContainer = ({
   customPageSizeOptions,
 
 }) => {
+  const [allReports, setAllReports] = useState([]);
+  const tableData = React.useMemo(() => allReports, [allReports]);
+
   const {
     getTableProps,
     getTableBodyProps,
@@ -77,7 +80,7 @@ const EventReportTableContainer = ({
   } = useTable(
     {
       columns,
-      data,
+      data: tableData,
       defaultColumn: { Filter: DefaultColumnFilter },
       initialState: {
         pageIndex: 0,
@@ -114,13 +117,24 @@ const EventReportTableContainer = ({
   const [allSheets, setAllSheets] = useState([]);
   const [loadingSheets, setLoadingSheets] = useState(false);
 
+  const fetchReports = async () => {
+    const result = await window.electronAPI.getReports();
+    setAllReports(result || []);
+  };
+
+  // Call fetchReports on mount
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+
 useEffect(() => {
     const fetchSheets = async () => {
       setLoadingSheets(true);
       const result = await window.electronAPI.getUploadedSheets();
       console.log("Fetched sheets:", result.data);
       if (result.success) {
-        setAllSheets(result.data); // array of { fileId, programType, storedAt, ... }
+        setAllSheets(result.data);
       } else {
         console.error(result.error);
       }
@@ -141,12 +155,12 @@ useEffect(() => {
     const sheet = filteredSheets.find(s => s.storedAt === spreadsheet);
     if (!sheet) return;
 
-    console.log("Generating report for:", sheet);
+    console.log("Generating report for:", allReports);
 
-    // Check if report for this sheet already exists in the stored reports
-    const alreadyGenerated = data.some(
+    const alreadyGenerated = allReports.some(
       report => report.spreadsheet_id === sheet.fileId
     );
+
 
     if (alreadyGenerated) {
       Swal.fire({
@@ -170,10 +184,9 @@ useEffect(() => {
         text: "Report has been generated successfully.",
       });
 
-      // Optionally, refresh table
-      setSpreadsheet("");
-      // e.g., refetch reports from DB to update table
-      // fetchReports();
+      await fetchReports();
+      setSpreadsheet(""); 
+
 
     } catch (error) {
       Swal.fire({
