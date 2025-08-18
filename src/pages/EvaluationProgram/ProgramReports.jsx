@@ -114,18 +114,19 @@ const EventReportTableContainer = ({
   const [allSheets, setAllSheets] = useState([]);
   const [loadingSheets, setLoadingSheets] = useState(false);
 
-  // Fetch uploaded spreadsheets on mount
-  const fetchSheets = async () => {
-    setLoadingSheets(true);
-    const result = await window.electronAPI.getUploadedSheets();
-    if (result.success) {
-      setAllSheets(result.data); // update table data
-    } else {
-      console.error(result.error);
-    }
-    setLoadingSheets(false);
-  };
-  useEffect(() => {
+useEffect(() => {
+    const fetchSheets = async () => {
+      setLoadingSheets(true);
+      const result = await window.electronAPI.getUploadedSheets();
+      console.log("Fetched sheets:", result.data);
+      if (result.success) {
+        setAllSheets(result.data); // array of { fileId, programType, storedAt, ... }
+      } else {
+        console.error(result.error);
+      }
+      setLoadingSheets(false);
+    };
+
     fetchSheets();
   }, []);
 
@@ -135,14 +136,16 @@ const EventReportTableContainer = ({
     ? allSheets.filter(sheet => String(sheet.programType) === programType)
     : []
   ;
-  
+
   const handleGenerateReport = async () => {
     const sheet = filteredSheets.find(s => s.storedAt === spreadsheet);
     if (!sheet) return;
 
-    // Check if report for this sheet already exists in allSheets
-    const alreadyGenerated = allSheets.some(
-      s => s.spreadsheet_name === spreadsheet && s.programType === programType
+    console.log("Generating report for:", sheet);
+
+    // Check if report for this sheet already exists in the stored reports
+    const alreadyGenerated = data.some(
+      report => report.spreadsheet_id === sheet.fileId
     );
 
     if (alreadyGenerated) {
@@ -155,23 +158,22 @@ const EventReportTableContainer = ({
     }
 
     try {
-      // Generate report
       const result = await window.electronAPI.generateReport({
         spreadsheetId: sheet.fileId,
         spreadsheetPath: spreadsheet,
         programType: programType,
       });
 
-      // Show success
       Swal.fire({
         icon: "success",
         title: "Success!",
         text: "Report has been generated successfully.",
       });
 
-      // Refresh table automatically
+      // Optionally, refresh table
       setSpreadsheet("");
-      fetchSheets();
+      // e.g., refetch reports from DB to update table
+      // fetchReports();
 
     } catch (error) {
       Swal.fire({
@@ -181,6 +183,7 @@ const EventReportTableContainer = ({
       });
     }
   };
+
 
   return (
     <Fragment>
