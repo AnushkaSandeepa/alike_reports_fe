@@ -5,8 +5,6 @@ import VerticalLayout from '@/layouts/Vertical';
 import HorizontalLayout from '@/layouts/Horizontal';
 import Root from './Root';
 import { Dashboard } from '@/pages/dashboard';
-import User from '@/pages/user';
-import Vehicle from '@/pages/vehicle';
 import SheetUpload from '@/pages/Uploading/SpreadsheetUpload';
 import EventSheetsTable from '@/pages/SheetList/SpreadsheetsTable';
 import EventReportGenerate from '@/pages/EvaluationProgram/ProgramReportTable';
@@ -42,9 +40,7 @@ export default function ProtectedRoutes() {
 				<Route path="event_reports/*" element={<EventReportGenerate />} />
 				<Route path="annual_reports/*" element={<AnnualReportGenerate />} />
 
-			     {/* have to remove */}
-				<Route path="vehicle/*" element={<Vehicle />} />
-				<Route path="user/*" element={<User />} />
+			     
 				
 			</Route>
 		</ReactRoutes>

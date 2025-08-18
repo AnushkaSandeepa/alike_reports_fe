@@ -132,7 +132,6 @@ useEffect(() => {
     const fetchSheets = async () => {
       setLoadingSheets(true);
       const result = await window.electronAPI.getUploadedSheets();
-      console.log("Fetched sheets:", result.data);
       if (result.success) {
         setAllSheets(result.data);
       } else {
@@ -155,7 +154,6 @@ useEffect(() => {
     const sheet = filteredSheets.find(s => s.storedAt === spreadsheet);
     if (!sheet) return;
 
-    console.log("Generating report for:", allReports);
 
     const alreadyGenerated = allReports.some(
       report => report.spreadsheet_id === sheet.fileId

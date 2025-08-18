@@ -20,7 +20,6 @@ function EventReportGenerate() {
         async function loadReports() {
             try {
                 const data = await window.electronAPI.getReports();
-                console.log("Fetched reports:", data);
                 setReports(data);
             } catch (err) {
                 console.error("Error loading reports:", err);
