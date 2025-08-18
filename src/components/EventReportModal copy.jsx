@@ -51,5 +51,16 @@ const chartOptions = {
         max: 100,
         title: { text: 'Confidence Level (%)' }
     },
+    annotations: {
+    yaxis: [{
+        y: post,
+        borderColor: '#008FFB',
+        label: {
+        text: `+${increase.toFixed(1)}% increase`,
+        style: { background: '#008FFB', color: "#fff" }
+        }
+    }]
+    },   
+
     colors: ['#FF4560', '#00E396']
 };

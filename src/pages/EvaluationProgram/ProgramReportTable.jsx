@@ -63,6 +63,7 @@ function EventReportGenerate() {
                         onClick={() => {
                             setSelectedRow(row.original);
                             setModalIsOpen(true);
+                            data={selectedRow};
                         }}
                     />
                 ),
