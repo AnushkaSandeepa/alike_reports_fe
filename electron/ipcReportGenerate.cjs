@@ -20,7 +20,13 @@ module.exports = function (ipcMain) {
   ipcMain.handle("generate-report", async (event, { spreadsheetId, spreadsheetPath, programType }) => {
     return new Promise((resolve, reject) => {
       const pythonPath = process.platform === "win32" ? "python" : "python3";
-      const scriptPath = path.join(__dirname, "..", "scripts", "report_generator.py");
+
+      let scriptPath; // declare outside if/else
+      if (programType !== "networking") {
+        scriptPath = path.join(__dirname, "..", "scripts", "report_generator_workshop.py");
+      } else {
+        scriptPath = path.join(__dirname, "..", "scripts", "report_generator_networking.py");
+      }
 
       const py = spawn(pythonPath, [scriptPath, spreadsheetPath, spreadsheetId, programType], {
         cwd: __dirname,
