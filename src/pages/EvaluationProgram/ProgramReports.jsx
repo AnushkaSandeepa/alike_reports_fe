@@ -14,6 +14,8 @@ import { Filter, DefaultColumnFilter } from "../../components/Common/filters";
 import JobListGlobalFilter from "../../components/Common/GlobalSearchFilter";
 import CustomerSearchBox from "@/pages/SheetList/CustomerSearchBox";
 import {  Stack,  } from 'rsuite';
+import Swal from "sweetalert2";
+
 
 // Define a default UI for filtering
 function GlobalFilter({
@@ -113,26 +115,72 @@ const EventReportTableContainer = ({
   const [loadingSheets, setLoadingSheets] = useState(false);
 
   // Fetch uploaded spreadsheets on mount
+  const fetchSheets = async () => {
+    setLoadingSheets(true);
+    const result = await window.electronAPI.getUploadedSheets();
+    if (result.success) {
+      setAllSheets(result.data); // update table data
+    } else {
+      console.error(result.error);
+    }
+    setLoadingSheets(false);
+  };
   useEffect(() => {
-    const fetchSheets = async () => {
-      setLoadingSheets(true);
-      const result = await window.electronAPI.getUploadedSheets();
-      console.log("Fetched sheets:", result.data);
-      if (result.success) {
-        setAllSheets(result.data); // array of { fileId, programType, storedAt, ... }
-      } else {
-        console.error(result.error);
-      }
-      setLoadingSheets(false);
-    };
-
     fetchSheets();
   }, []);
+
 
   // Filter spreadsheets for the selected program type
   const filteredSheets = programType
     ? allSheets.filter(sheet => String(sheet.programType) === programType)
-    : [];
+    : []
+  ;
+  
+  const handleGenerateReport = async () => {
+    const sheet = filteredSheets.find(s => s.storedAt === spreadsheet);
+    if (!sheet) return;
+
+    // Check if report for this sheet already exists in allSheets
+    const alreadyGenerated = allSheets.some(
+      s => s.spreadsheet_name === spreadsheet && s.programType === programType
+    );
+
+    if (alreadyGenerated) {
+      Swal.fire({
+        icon: "error",
+        title: "Oops!",
+        text: "Report has already been generated for this spreadsheet!",
+      });
+      return;
+    }
+
+    try {
+      // Generate report
+      const result = await window.electronAPI.generateReport({
+        spreadsheetId: sheet.fileId,
+        spreadsheetPath: spreadsheet,
+        programType: programType,
+      });
+
+      // Show success
+      Swal.fire({
+        icon: "success",
+        title: "Success!",
+        text: "Report has been generated successfully.",
+      });
+
+      // Refresh table automatically
+      setSpreadsheet("");
+      fetchSheets();
+
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "Error!",
+        text: error.message || "Failed to generate report.",
+      });
+    }
+  };
 
   return (
     <Fragment>
@@ -189,19 +237,12 @@ const EventReportTableContainer = ({
           <Col md="auto" className="d-flex align-items-end">
             <button
               className="btn-alike"
-              onClick={() => {
-                console.log("Generate report for:", spreadsheet)
-                window.electronAPI.generateReport({
-                  spreadsheetId: filteredSheets.find(s => s.storedAt === spreadsheet)?.fileId,
-                  spreadsheetPath: spreadsheet,
-                  programType: programType
-                });
-
-              }}
-               disabled={!programType || !spreadsheet}
+              onClick={handleGenerateReport}
+              disabled={!programType || !spreadsheet}
             >
               Generate
             </button>
+
           </Col>
         </Row>
 
