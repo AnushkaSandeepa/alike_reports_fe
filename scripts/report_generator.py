@@ -106,11 +106,11 @@ def calculate_confidence_scores(file_path):
     df_satis = convert_to_numeric(df, satisfaction_cols, "agreement")
 
     # Calculate percentages
-    pre_avg_conf = safe_float(df_pre[pre_cols].mean().mean() / 4 * 100) if not df_pre[pre_cols].empty else 0.0
-    post_avg_conf = safe_float(df_post[post_cols].mean().mean() / 4 * 100) if not df_post[post_cols].empty else 0.0
-    confidence_increase = safe_float(post_avg_conf - pre_avg_conf)
+    pre_avg_conf = round(safe_float(df_pre[pre_cols].mean().mean() / 4 * 100), 2) if not df_pre[pre_cols].empty else 0.0
+    post_avg_conf = round(safe_float(df_post[post_cols].mean().mean() / 4 * 100), 2) if not df_post[post_cols].empty else 0.0
+    confidence_increase = round(safe_float(post_avg_conf - pre_avg_conf), 2)
 
-    satisfaction_rate = safe_float(df_satis[satisfaction_cols].mean().mean() / 5 * 100) if not df_satis[satisfaction_cols].empty else 0.0
+    satisfaction_rate = round(safe_float(df_satis[satisfaction_cols].mean().mean() / 5 * 100), 2) if not df_satis[satisfaction_cols].empty else 0.0
 
     # Metadata
     spreadsheet_name = Path(spreadsheet_path).stem

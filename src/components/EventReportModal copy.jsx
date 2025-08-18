@@ -1,66 +1,234 @@
-// Inside your ViewReportModal component, after `if (!data) return null;`
+import React, { useRef } from "react"; 
+import PropTypes from "prop-types";
+import Modal from "react-modal";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+import ReactApexChart from "react-apexcharts";
+import { Col, Row } from "reactstrap";
 
-if (data.program_type !== "workshop") {
+const ViewReportModal = ({ isOpen, onClose, data, size = "xl" }) => {
+  const contentRef = useRef(null);
+
+  const modalWidths = {
+    sm: "540px",
+    md: "720px",
+    lg: "960px",
+    xl: "1140px",
+    xxl: "1320px"
+  };
+  const width = modalWidths[size] || "720px";
+
+  const handleDownloadAsImage = async () => {
+    const canvas = await html2canvas(contentRef.current);
+    const link = document.createElement("a");
+    link.download = "report-summary.png";
+    link.href = canvas.toDataURL();
+    link.click();
+  };
+
+  const handleDownloadAsPDF = async () => {
+    const canvas = await html2canvas(contentRef.current);
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF();
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const imgProps = pdf.getImageProperties(imgData);
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+    pdf.save("report-summary.pdf");
+  };
+
+  if (!data) return null;
+
+  // ✅ Safely extract confidence data
+  const confidence = data;
+  if (!confidence) {
     return (
-        <Modal isOpen={isOpen} onRequestClose={onClose}>
-            <div style={{ padding: "20px" }}>
-                <h5>No workshop data to display</h5>
-                <button onClick={onClose}>Close</button>
-            </div>
-        </Modal>
+      <Modal isOpen={isOpen} onRequestClose={onClose}>
+        <div style={{ padding: "20px", color: "red" }}>
+          <h5>⚠️ There is an issue in data mapping</h5>
+          <p>Please contact administration / developer team to sort out the issue.</p>
+          <button onClick={onClose}>Close</button>
+          
+        </div>
+      </Modal>
     );
-}
+  }
 
-// Extract values from data.confidence_data
-const pre = data.confidence_data?.pre_percent ?? 0;
-const post = data.confidence_data?.post_percent ?? 0;
-const increase = data.confidence_data?.increase_percent ?? 0;
-const satisfaction = data.confidence_data?.satisfaction_rate ?? 0;
+  // Extract values safely from data.confidence_data
+  const pre = data?.confidence_data?.pre_percent ?? 0;
+  const post = data?.confidence_data?.post_percent ?? 0;
+  const increase = data?.confidence_data?.increase_percent ?? 0;
+  const satisfaction = data?.confidence_data?.satisfaction_rate ?? 0;
 
-// Prepare ApexCharts series dynamically
-const series = [
-    {
-        name: "Confidence Level",
-        data: [pre, post]
-    }
-];
-
-// Prepare ApexCharts options
-const chartOptions = {
-    chart: {
-        type: 'bar',
-        height: 350,
-        toolbar: { show: false }
-    },
+  const chartOptions = {
+    chart: { type: "bar", height: 350, toolbar: { show: false } },
     plotOptions: {
-        bar: {
-            horizontal: false,
-            columnWidth: '50%',
-            endingShape: 'rounded',
-            distributed: true
-        }
-    },
-    dataLabels: {
-        enabled: true,
-        formatter: (val) => `${val}%`
-    },
-    xaxis: {
-        categories: ['Pre-Workshop', 'Post-Workshop'],
-    },
-    yaxis: {
-        max: 100,
-        title: { text: 'Confidence Level (%)' }
-    },
+        bar: { horizontal: false, columnWidth: "50%", endingShape: "rounded", distributed: true }
+      },
+    dataLabels: { enabled: true, formatter: (val) => `${val}%` },
+    xaxis: { categories: ["Pre-Workshop", "Post-Workshop"] },
+    yaxis: { max: 100, title: { text: "Confidence Level (%)" } },
+    colors: ["#ff2949ff", "#00d17aff"],
     annotations: {
     yaxis: [{
-        y: post,
-        borderColor: '#008FFB',
-        label: {
-        text: `+${increase.toFixed(1)}% increase`,
+      y: post,
+      borderColor: '#008FFB',
+      label: {
+        text: `+${increase.toFixed(1)}% confidence increment`,
         style: { background: '#008FFB', color: "#fff" }
-        }
+      }
     }]
-    },   
+    }
+  };
 
-    colors: ['#FF4560', '#00E396']
+  // Satisfaction Radial Chart
+  const satisfactionOptions = {
+    chart: { type: "radialBar" },
+    plotOptions: {
+      radialBar: {
+        hollow: { size: "65%" },
+        dataLabels: {
+          name: {
+            show: true,
+            fontSize: "16px",
+          },
+          value: {
+            show: true,
+            fontSize: "22px",
+            formatter: (val) => `${val}%`,
+          },
+        },
+      },
+    },
+    labels: ["Satisfaction"],
+    colors: ["#00E396"], // green theme
+  };
+
+  // Satisfaction levels donut chart
+  const satisfactionCounts = data.satisfaction_counts || {};
+  const donutLabels = Object.keys(satisfactionCounts);
+  const donutSeries = Object.values(satisfactionCounts);
+
+  const donutOptions = {
+    chart: { type: "donut" },
+    labels: donutLabels,
+    plotOptions: {
+      pie: {
+        donut: { size: "60%" },
+      },
+    },
+    dataLabels: {
+      enabled: true,
+      formatter: (val, opts) => `${donutSeries[opts.seriesIndex]}`, // show counts
+    },
+    legend: { position: "bottom" },
+    colors: ["#00E396", "#FEB019", "#FF4560", "#775DD0", "#008FFB"], // optional colors
+  };
+
+
+
+  const satisfactionSeries = [data.confidence_data.satisfaction_rate];
+  const series = [{ name: "Confidence Level", data: [pre, post] }];
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onRequestClose={onClose}
+      contentLabel="Workshop Report"
+      style={{
+        overlay: { zIndex: 9999, backgroundColor: "rgba(0, 0, 0, 0.5)" },
+        content: {
+          width: "90%",
+          maxWidth: width,
+          margin: "auto",
+          padding: "0",
+          borderRadius: "10px",
+          display: "flex",
+          flexDirection: "column",
+          maxHeight: "800px"
+        }
+      }}
+    >
+      <div className="modal-header" style={{ padding: "15px", background: "#f5f5f5", borderBottom: "1px solid #ddd" }}>
+        <h5 className="modal-title">{data.spreadsheetName} — Workshop Summary</h5>
+        <button onClick={onClose} style={{ background: "transparent", border: "none", fontSize: "18px", cursor: "pointer" }}>
+          &times;
+        </button>
+      </div>
+
+      <div ref={contentRef} className="modal-body" style={{ padding: "20px 50px" }}>
+        <Row>
+          <Col xs={12} md={7}>
+            {/* Chart */}
+            <div style={{ maxWidth: "600px", margin: "auto" }}>
+              <ReactApexChart options={chartOptions} series={series} type="bar" height={350} />
+            </div>
+          </Col>
+          <Col xs={12} md={5}>
+            <div style={{ margin: "0 auto", maxWidth: "300px" }}>
+              
+
+              {/* Donut for Satisfaction Counts */}
+              <ReactApexChart
+                options={donutOptions}
+                series={donutSeries}
+                type="donut"
+                height={180}
+              />
+            </div>
+          </Col>
+        </Row>
+
+        <Row style={{ marginTop: "20px" }}>
+          
+          <Col xs={12} md={6}>  
+            <div style={{ marginTop: "20px" }}>
+              <p><strong>Average pre-workshop confidence level:</strong> {pre.toFixed(1)}%</p>
+              <p><strong>Average post-workshop confidence level:</strong> {post.toFixed(1)}%</p>
+              <p><strong>Confidence level increase:</strong> {increase.toFixed(1)}%</p>
+              <p><strong>Workshop satisfaction rate:</strong> {satisfaction.toFixed(1)}%</p>
+            </div>
+          </Col>
+          <Col xs={12} md={6}>
+            {/* Radial Bar for Satisfaction Rate */}
+
+            <ReactApexChart
+                options={satisfactionOptions}
+                series={satisfactionSeries}
+                type="radialBar"
+                height={180}
+              />
+          </Col>
+        </Row>  
+
+
+        {/* Feedback (optional if exists) */}
+        {data.generatedData?.comments?.length > 0 && (
+          <div style={{ marginTop: "20px" }}>
+            <h6>Additional feedback:</h6>
+            <ul>
+              {data.generatedData.comments.map((c, i) => (
+                <li key={i}>{c}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      <div className="modal-footer" style={{ padding: "15px", background: "#f5f5f5", borderTop: "1px solid #ddd", textAlign: "right" }}>
+        <button className="btn btn-outline-primary me-2" onClick={handleDownloadAsImage}>Download as Image</button>
+        <button className="btn btn-outline-danger me-2" onClick={handleDownloadAsPDF}>Download as PDF</button>
+        <button className="btn btn-secondary" onClick={onClose}>Close</button>
+      </div>
+    </Modal>
+  );
 };
+
+ViewReportModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  data: PropTypes.object,
+  size: PropTypes.string
+};
+
+export default ViewReportModal;

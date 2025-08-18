@@ -63,47 +63,78 @@ const ViewReportModal = ({ isOpen, onClose, data, size = "xl" }) => {
   const chartOptions = {
     chart: { type: "bar", height: 350, toolbar: { show: false } },
     plotOptions: {
-      bar: { horizontal: false, columnWidth: "50%", endingShape: "rounded", distributed: true }
-    },
+        bar: { horizontal: false, columnWidth: "50%", endingShape: "rounded", distributed: true }
+      },
     dataLabels: { enabled: true, formatter: (val) => `${val}%` },
     xaxis: { categories: ["Pre-Workshop", "Post-Workshop"] },
     yaxis: { max: 100, title: { text: "Confidence Level (%)" } },
     colors: ["#ff2949ff", "#00d17aff"],
     annotations: {
-  yaxis: [{
-    y: post,
-    borderColor: '#008FFB',
-    label: {
-      text: `+${increase.toFixed(1)}% confidence increment`,
-      style: { background: '#008FFB', color: "#fff" }
+    yaxis: [{
+      y: post,
+      borderColor: '#008FFB',
+      label: {
+        text: `+${increase.toFixed(1)}% confidence increment`,
+        style: { background: '#008FFB', color: "#fff" }
+      }
+    }]
     }
-  }]
-}
-
   };
 
   // Satisfaction Radial Chart
-const satisfactionOptions = {
-  chart: { type: "radialBar" },
-  plotOptions: {
-    radialBar: {
-      hollow: { size: "65%" },
-      dataLabels: {
-        name: {
-          show: true,
-          fontSize: "16px",
-        },
-        value: {
-          show: true,
-          fontSize: "22px",
-          formatter: (val) => `${val}%`,
+  const satisfactionOptions = {
+    chart: { type: "radialBar" },
+    plotOptions: {
+      radialBar: {
+        hollow: { size: "65%" },
+        dataLabels: {
+          name: {
+            show: true,
+            fontSize: "16px",
+          },
+          value: {
+            show: true,
+            fontSize: "22px",
+            formatter: (val) => `${val}%`,
+          },
         },
       },
     },
+    labels: ["Satisfaction"],
+    colors: ["#00E396"], // green theme
+  };
+
+const satisfactionCounts = data.satisfaction_counts || {};
+const donutLabels = Object.keys(satisfactionCounts);
+const donutCounts = Object.values(satisfactionCounts);
+const totalCount = donutCounts.reduce((a, b) => a + b, 0);
+const donutSeries = donutCounts.map(count => (count / totalCount * 100)); // % for chart
+
+const donutOptions = {
+  chart: { type: "donut" },
+  labels: donutLabels,
+  plotOptions: {
+    pie: { donut: { size: "60%" } },
   },
-  labels: ["Satisfaction"],
-  colors: ["#00E396"], // green theme
+  tooltip: {
+    y: {
+      formatter: (val, opts) => {
+        const count = donutCounts[opts.seriesIndex];
+        return `${val.toFixed(1)}% (${count} votes)`; // safe tooltip
+      }
+    }
+  },
+  dataLabels: {
+    enabled: true,
+    formatter: (val) => `${val.toFixed(1)}%`, // show % on slices
+  },
+  colors: ["#00E396", "#FEB019", "#008FFB", "#775DD0", "#f73939ff"], // fixed colors
+  legend: { position: "bottom" },
 };
+
+
+
+
 
   const satisfactionSeries = [data.confidence_data.satisfaction_rate];
   const series = [{ name: "Confidence Level", data: [pre, post] }];
@@ -136,23 +167,34 @@ const satisfactionOptions = {
 
       <div ref={contentRef} className="modal-body" style={{ padding: "20px 50px" }}>
         <Row>
-          <Col xs={12} md={9}>
+          <Col xs={12} md={6}>
             {/* Chart */}
             <div style={{ maxWidth: "600px", margin: "auto" }}>
-              <ReactApexChart options={chartOptions} series={series} type="bar" height={350} />
+              <ReactApexChart options={chartOptions} series={series} type="bar"  />
             </div>
           </Col>
-          <Col xs={12} md={3}>
-            <div style={{ maxWidth: "300px", margin: "30px auto" }}>
+          <Col xs={12} md={4} style={{ display: "flex", flexDirection: "column", marginTop: "50px" }}>
+            {/* Donut for Satisfaction Counts */}
+              <ReactApexChart
+                options={donutOptions}
+                series={donutSeries}
+                type="donut"
+              />
+          </Col>
+          {/* <Col xs={12} md={2} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          
+          </Col> */}
+          <Col xs={12} md={3} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ margin: "0 auto" }}>
+              {/* Radial Bar for Satisfaction Rate */}
               <ReactApexChart
                 options={satisfactionOptions}
                 series={satisfactionSeries}
                 type="radialBar"
-                height={300}
-              />
+                height={190}
+              />  
             </div>
           </Col>
-
         </Row>
         
 
@@ -167,6 +209,9 @@ const satisfactionOptions = {
           <p><strong>Average post-workshop confidence level:</strong> {post.toFixed(1)}%</p>
           <p><strong>Confidence level increase:</strong> {increase.toFixed(1)}%</p>
           <p><strong>Workshop satisfaction rate:</strong> {satisfaction.toFixed(1)}%</p>
+        {/* <div style={{ background: "#f5f5f5", padding: "10px", borderRadius: "6px", textAlign: "center" }}>
+          <strong>Average pre-workshop confidence level:</strong> {pre.toFixed(1)}%
+        </div> */}
         </div>
 
 
