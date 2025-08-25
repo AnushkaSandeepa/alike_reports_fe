@@ -45,13 +45,13 @@ function EventReportGenerate() {
                 Header: 'Used Sheetsheet ID',
                 accessor: 'spreadsheet_id',
             },
-            {
-                Header: 'Generated Date',
-                accessor: 'generated_date',
-                minWidth: 150,
-                maxWidth: 250,
-                Cell: ({ value }) => new Date(value).toLocaleString()
-            },
+            // {
+            //     Header: 'Generated Date',
+            //     accessor: 'generated_date',
+            //     minWidth: 150,
+            //     maxWidth: 250,
+            //     Cell: ({ value }) => new Date(value).toLocaleString()
+            // },
             {
                 Header: 'Program Type',
                 accessor: 'program_type',

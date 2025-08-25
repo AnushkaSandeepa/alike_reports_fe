@@ -5,7 +5,7 @@ import { FaTrash, FaEye } from "react-icons/fa";
 
 function EventSheetsTable() {
   const [sheetData, setSheetData] = useState([]);
-
+  console.log("Sheet Data:", sheetData);
   // Fetch metadata on mount
   useEffect(() => {
     const fetchData = async () => {
@@ -17,7 +17,7 @@ function EventSheetsTable() {
           fileId: item.fileId,
           name: item.storedAt.split(/[\\/]/).pop(),
           sheet_type: item.programType,
-          startDate: item.savedOn.slice(0, 10),
+          eventDate: item.programDate.slice(0, 10),
           status: "Active", // You can add real status logic later
           fullPath: item.storedAt
         }));
@@ -67,7 +67,7 @@ const handleDelete = async (rowIndex) => {
       },
       {
         Header: "Uploaded Date",
-        accessor: "startDate",
+        accessor: "eventDate",
         minWidth: 150,
         maxWidth: 250
       },

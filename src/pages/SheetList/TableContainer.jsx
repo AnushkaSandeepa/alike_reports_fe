@@ -98,7 +98,7 @@ const TableContainer = ({
       initialState: {
         pageIndex: 0,
         pageSize: customPageSize,
-        sortBy: [{ id: "startDate", desc: false }],
+        sortBy: [{ id: "eventDate", desc: false }],
       },
     },
     useGlobalFilter,

@@ -1,6 +1,8 @@
 const { dialog, app, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const XLSX = require("xlsx");
+
 
 const sanitize = (name) => name.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_").trim();
 
@@ -16,11 +18,57 @@ function getNextId(idFilePath) {
   return "SS" + nextId.toString().padStart(4, "0");
 }
 
+function excelDateToJSDate(serial) {
+  // Excel uses 1900 date system
+  const utc_days = serial - 25569;
+  const utc_value = utc_days * 86400; // seconds
+  const date_info = new Date(utc_value * 1000);
+  return date_info;
+}
+
+function extractEventDate(filePath) {
+  try {
+    const workbook = XLSX.readFile(filePath);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const jsonData = XLSX.utils.sheet_to_json(sheet, { raw: true });
+
+    const firstRow = jsonData[0];
+    if (firstRow && firstRow["Event Date"] != null) {
+      let dateValue = firstRow["Event Date"];
+
+      if (typeof dateValue === "number") {
+        dateValue = excelDateToJSDate(dateValue); // convert serial number
+      } else {
+        dateValue = new Date(dateValue); // fallback
+      }
+
+      return dateValue.toISOString().slice(0, 10); // "YYYY-MM-DD"
+    }
+
+    return null;
+  } catch (err) {
+    console.error("Error extracting event date:", err.message);
+    return null;
+  }
+}
+
+
+
 module.exports = (ipcMain) => {
   // File picker
   ipcMain.handle('show-open-dialog', async (_, options) => {
     return await dialog.showOpenDialog(options);
   });
+
+  // Extract event date from spreadsheet
+ ipcMain.handle("extract-event-date", async (_, filePath) => {
+    const eventDate = extractEventDate(filePath); // already a string or null
+    return {
+      success: true,
+      eventDate: eventDate || null, // no .toISOString()
+    };
+  });
+
 
   // Store spreadsheet
   ipcMain.handle('store-spreadsheet', async (_, { sourcePath, programType, programDate }) => {
@@ -38,7 +86,7 @@ module.exports = (ipcMain) => {
         throw new Error(`Unsupported file type "${ext}".`);
       }
 
-      const baseDir = path.join(app.getPath("documents"), "uploadfiles");
+      const baseDir = path.join(app.getPath("userData"), "Documents");
       await fs.promises.mkdir(baseDir, { recursive: true });
 
       const id = getNextId(path.join(baseDir, "last_id.txt"));
@@ -51,7 +99,7 @@ module.exports = (ipcMain) => {
       const safeProgramType = sanitize(String(programType || "general"));
       const safeProgramDate = sanitize(String(programDate || ""));
 
-      let fileName = `${safeProgramType}_${safeProgramDate}_${safeOriginal}${ext}`;
+      let fileName = `${safeOriginal}${ext}`;
       let destFilePath = path.join(spreadsheetDir, fileName);
 
       try {

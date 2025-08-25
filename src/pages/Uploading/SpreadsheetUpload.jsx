@@ -14,10 +14,10 @@ import withReactContent from "sweetalert2-react-content";
 
 import "flatpickr/dist/themes/material_blue.css";
 import ExcelIcon from "../../assets/images/File/Excel.png";
+import { FaUpload } from "react-icons/fa";
 
 const MySwal = withReactContent(Swal);
 
-  
 const PROGRAM_TYPES = [
   { value: "", label: "Select Type" },
   { value: "networking_events", label: "Networking Events" },
@@ -30,27 +30,49 @@ const SheetUpload = () => {
   }, []);
 
   const [programType, setProgramType] = useState("");
-  const [programDate, setProgramDate] = useState(null);
+  const [programDate, setProgramDate] = useState(null); // JS Date
   const [status, setStatus] = useState("");
   const [selectedFilePath, setSelectedFilePath] = useState(null);
   const [fileName, setFileName] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const RequiredAsterisk = () => (
-    <small
-      className="text-danger ms-1"
-      aria-label="required"
-      style={{ fontSize: 12 }}
-    >
+    <small className="text-danger ms-1" aria-label="required" style={{ fontSize: 12 }}>
       *
     </small>
   );
 
   const handlePickFile = async () => {
     const result = await window.electronAPI.pickSpreadsheet();
-    if (result.success) {
-      setSelectedFilePath(result.filePath);
-      setFileName(result.filePath.split(/[\\/]/).pop());
+    if (result?.success) {
+      const path = result.filePath;
+      // quick client-side extension check
+      const ext = (path.match(/\.[^./\\]+$/)?.[0] || "").toLowerCase();
+      const allowed = [".xlsx", ".xls", ".csv"];
+      if (!allowed.includes(ext)) {
+        MySwal.fire({
+          icon: "warning",
+          title: "Unsupported file",
+          text: "Only .xlsx, .xls, .csv files are allowed.",
+        });
+        return;
+      }
+
+      setSelectedFilePath(path);
+      setFileName(path.split(/[\\/]/).pop());
       setStatus("");
+
+      // Auto-fill program date; backend returns "YYYY-MM-DD"
+      try {
+        const res = await window.electronAPI.extractEventDate(path);
+        console.log("Extracted event date:", res);
+        if (res?.success && res?.eventDate) {
+          const [y, m, d] = res.eventDate.split("-").map(Number);
+          setProgramDate(new Date(y, m-1, d)); 
+        }
+      } catch (e) {
+        console.error("extractEventDate failed:", e);
+      }
     } else {
       setStatus("File selection cancelled.");
     }
@@ -66,49 +88,61 @@ const SheetUpload = () => {
       return;
     }
 
-    setStatus("Uploading...");
+    try {
+      setIsUploading(true);
+      setStatus("Uploading...");
 
-    const res = await window.electronAPI.storeSpreadsheet({
-      sourcePath: selectedFilePath,
-      programType,
-      programDate: programDate.toISOString().slice(0, 10),
-    });
+      // helper to format a Date into YYYY-MM-DD (local calendar day)
+      const ymdLocal = (d) =>
+        [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-");
 
-    if (res.success) {
-      MySwal.fire({
-        icon: "success",
-        title: "Upload Successful",
-        text: `Saved to: ${res.metadata.storedAt}`,
-        timer: 3000,
-        timerProgressBar: true,
-        showConfirmButton: false,
+      const res = await window.electronAPI.storeSpreadsheet({
+        sourcePath: selectedFilePath,
+        programType,
+        programDate: ymdLocal(programDate), // <-- fixed
       });
 
-      // Reset all form states
-      setProgramType("");
-      setProgramDate(null);
-      setSelectedFilePath(null);
-      setFileName(null);
-      setStatus("");
 
-    } else {
+      if (res?.success) {
+        MySwal.fire({
+          icon: "success",
+          title: "Upload Successful",
+          text: `Saved to: ${res.metadata.storedAt}`,
+          timer: 3000,
+          timerProgressBar: true,
+          showConfirmButton: false,
+        });
+
+        // Reset all form states
+        setProgramType("");
+        setProgramDate(null);
+        setSelectedFilePath(null);
+        setFileName(null);
+        setStatus("");
+      } else {
+        MySwal.fire({
+          icon: "error",
+          title: "Upload Failed",
+          text: res?.error || "Unknown error",
+        });
+      }
+    } catch (err) {
+      console.error(err);
       MySwal.fire({
         icon: "error",
         title: "Upload Failed",
-        text: res.error,
+        text: String(err),
       });
+    } finally {
+      setIsUploading(false);
     }
   };
-
 
   return (
     <div className="page-content">
       <Container fluid={true}>
         <Row className="py-3 align-items-center">
-          <div
-            className="fs-5"
-            style={{ fontSize: "24px", fontWeight: "700" }}
-          >
+          <div className="fs-5" style={{ fontSize: "24px", fontWeight: "700" }}>
             Spreadsheet Uploading
           </div>
         </Row>
@@ -137,24 +171,24 @@ const SheetUpload = () => {
                       </select>
                     </Col>
 
-                    <Col md={4} className="mb-3">
-                      <h6 className="card-title">
-                        Select Program Date
+                    <Col md={4} className="mb-3" title="Make sure your data file has a column named Event Date">
+                      <h6 className="card-title" >
+                        Program Date (Auto)
                         {!programDate && <RequiredAsterisk />}
                       </h6>
                       <InputGroup>
                         <Flatpickr
                           className="form-control d-block date-buttion-alike"
                           placeholder="dd M,yyyy"
+                          
+                          disabled
                           options={{
                             altInput: true,
                             altFormat: "F j, Y",
                             dateFormat: "Y-m-d",
                           }}
                           value={programDate ? [programDate] : []}
-                          onChange={(dates) =>
-                            setProgramDate(dates[0] || null)
-                          }
+                          onChange={(dates) => setProgramDate(dates[0] || null)}
                         />
                       </InputGroup>
                     </Col>
@@ -184,11 +218,22 @@ const SheetUpload = () => {
                           onMouseLeave={(e) =>
                             (e.currentTarget.style.backgroundColor = "#f8f9fa")
                           }
-                          >
-                          <div style={{ fontSize: "16px", fontWeight: 500 }}>
-                            Drag & drop or click to select spreadsheet
+                        >
+                          {/* Upload Icon */}
+                          <div style={{ fontSize: "50px", marginBottom: "10px" }}>
+                            <i className="bi bi-cloud-upload"></i>
+                            <FaUpload />
                           </div>
-                          <div style={{ fontSize: "12px", color: "#adb5bd", marginTop: "5px" }}>
+                          <div style={{ fontSize: "16px", fontWeight: 500 }}>
+                            Click to Select Spreadsheet
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              color: "#adb5bd",
+                              marginTop: "5px",
+                            }}
+                          >
                             Only .xlsx, .xls, .csv files are allowed
                           </div>
                         </div>
@@ -216,6 +261,7 @@ const SheetUpload = () => {
                                 setSelectedFilePath(null);
                                 setFileName(null);
                                 setStatus("");
+                                setProgramDate(null); // also clear auto-filled date
                               }}
                               style={{
                                 background: "none",
@@ -232,15 +278,14 @@ const SheetUpload = () => {
                           </div>
                         )}
 
-
-
                         {selectedFilePath && (
                           <button
                             type="button"
                             className="btn btn-alike"
                             onClick={handleUpload}
+                            disabled={isUploading}
                           >
-                            Upload Spreadsheet
+                            {isUploading ? "Uploading..." : "Upload Spreadsheet"}
                           </button>
                         )}
                       </div>
@@ -248,7 +293,8 @@ const SheetUpload = () => {
                   </Row>
                 </Form>
 
-                {/* {status && (
+                {/* If you want a status area later:
+                {status && (
                   <Alert
                     color={status.startsWith("Error") ? "danger" : "success"}
                     className="mt-3"
@@ -258,7 +304,6 @@ const SheetUpload = () => {
                     {status}
                   </Alert>
                 )} */}
-
               </CardBody>
             </Card>
           </Col>

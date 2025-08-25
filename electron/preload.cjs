@@ -46,6 +46,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     });
   },
 
-  getReports: () => ipcRenderer.invoke("get-reports")
+  getReports: () => ipcRenderer.invoke("get-reports"),
+
+  extractEventDate: (filePath) => ipcRenderer.invoke("extract-event-date", filePath),
+
 
 });
