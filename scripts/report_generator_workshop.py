@@ -86,32 +86,47 @@ def get_pre_post_satisfaction_cols(df, marker_col):
     return pre_cols, post_cols, satisfaction_cols
 
 def calculate_confidence_scores(file_path):
+    print("[DEBUG] Starting calculation for:", file_path)
+    
     spreadsheet_path = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else os.path.abspath(file_path)
-    df = pd.read_excel(spreadsheet_path)
+    print("[DEBUG] Spreadsheet path:", spreadsheet_path)
 
-    # Locate the workshop before/after marker column
+    df = pd.read_excel(spreadsheet_path)
+    print("[DEBUG] DataFrame loaded. Shape:", df.shape)
+    print("[DEBUG] Columns:", df.columns.tolist())
+
+    # Locate the marker column
     marker_col = "Please mark whether this feedback is for before or after the workshop."
     if marker_col not in df.columns:
+        print("[ERROR] Marker column not found:", marker_col)
         raise ValueError(f"Column '{marker_col}' not found in spreadsheet")
 
-    # Dynamically get pre, post, and satisfaction columns
+    # Get dynamic columns
     pre_cols, post_cols, satisfaction_cols = get_pre_post_satisfaction_cols(df, marker_col)
+    print("[DEBUG] Pre columns:", pre_cols)
+    print("[DEBUG] Post columns:", post_cols)
+    print("[DEBUG] Satisfaction columns:", satisfaction_cols)
 
-    # Calculate agreement counts BEFORE numeric conversion
+    # Agreement counts
     satisfaction_counts = calculate_agreement_counts(df, satisfaction_cols)
+    print("[DEBUG] Satisfaction counts:", satisfaction_counts)
 
-    # Convert columns to numeric
+    # Numeric conversion
     df_pre = convert_to_numeric(df, pre_cols, "confidence")
     df_post = convert_to_numeric(df, post_cols, "confidence")
     df_satis = convert_to_numeric(df, satisfaction_cols, "agreement")
+    print("[DEBUG] Conversion complete.")
 
     # Calculate percentages
     pre_avg_conf = round(safe_float(df_pre[pre_cols].mean().mean() / 4 * 100), 2) if not df_pre[pre_cols].empty else 0.0
     post_avg_conf = round(safe_float(df_post[post_cols].mean().mean() / 4 * 100), 2) if not df_post[post_cols].empty else 0.0
     confidence_increase = round(safe_float(post_avg_conf - pre_avg_conf), 2)
-
     satisfaction_rate = round(safe_float(df_satis[satisfaction_cols].mean().mean() / 5 * 100), 2) if not df_satis[satisfaction_cols].empty else 0.0
 
+    print(f"[DEBUG] Pre confidence: {pre_avg_conf}%")
+    print(f"[DEBUG] Post confidence: {post_avg_conf}%")
+    print(f"[DEBUG] Increase: {confidence_increase}%")
+    print(f"[DEBUG] Satisfaction rate: {satisfaction_rate}%")
     # Metadata
     spreadsheet_name = Path(spreadsheet_path).stem
     spreadsheet_id = sys.argv[2] if len(sys.argv) > 2 else ""

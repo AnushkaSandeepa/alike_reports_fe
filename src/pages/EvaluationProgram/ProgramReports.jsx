@@ -116,6 +116,8 @@ const EventReportTableContainer = ({
   const [spreadsheet, setSpreadsheet] = useState("");
   const [allSheets, setAllSheets] = useState([]);
   const [loadingSheets, setLoadingSheets] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+
 
   const fetchReports = async () => {
     const result = await window.electronAPI.getReports();
@@ -151,18 +153,16 @@ useEffect(() => {
   ;
 
   const handleGenerateReport = async () => {
-    const sheet = filteredSheets.find(s => s.storedAt === spreadsheet);
-    if (!sheet) return;
+  const sheet = filteredSheets.find(s => s.storedAt === spreadsheet);
+  if (!sheet) return;
 
+  const alreadyGenerated = allReports.some(
+    report => report.spreadsheet_id === sheet.fileId
+  );
 
-    const alreadyGenerated = allReports.some(
-      report => report.spreadsheet_id === sheet.fileId
-    );
-
-
-    if (alreadyGenerated) {
-      Swal.fire({
-        icon: "error",
+  if (alreadyGenerated) {
+    Swal.fire({
+      icon: "error",
         title: "Oops!",
         text: "Report has already been generated for this spreadsheet!",
       });
@@ -170,6 +170,7 @@ useEffect(() => {
     }
 
     try {
+      setIsGenerating(true); // disable button
       const result = await window.electronAPI.generateReport({
         spreadsheetId: sheet.fileId,
         spreadsheetPath: spreadsheet,
@@ -183,15 +184,15 @@ useEffect(() => {
       });
 
       await fetchReports();
-      setSpreadsheet(""); 
-
-
+      setSpreadsheet("");
     } catch (error) {
       Swal.fire({
         icon: "error",
         title: "Error!",
         text: error.message || "Failed to generate report.",
       });
+    } finally {
+      setIsGenerating(false); // re-enable button
     }
   };
 
@@ -252,10 +253,11 @@ useEffect(() => {
             <button
               className="btn-alike"
               onClick={handleGenerateReport}
-              disabled={!programType || !spreadsheet}
+              disabled={isGenerating || !programType || !spreadsheet}
             >
-              Generate
+              {isGenerating ? "Generating..." : "Generate"}
             </button>
+
 
           </Col>
         </Row>

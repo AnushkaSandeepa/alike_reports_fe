@@ -61,11 +61,19 @@ def calculate_satisfaction_scores(file_path):
     spreadsheet_id = sys.argv[2] if len(sys.argv) > 2 else ""
     program_type = sys.argv[3] if len(sys.argv) > 3 else "networking_events"
 
+    # Calculate average satisfaction percentage
+    numeric_df = df[satisfaction_cols].applymap(lambda x: AGREEMENT_MAP.get(x, 0))
+    avg_satisfaction = safe_float(numeric_df.mean().mean())
+    satisfaction_rate = round(avg_satisfaction / 5 * 100, 2) 
+
     result = {
         "spreadsheet_id": spreadsheet_id,
         "spreadsheet_name": spreadsheet_name,
         "program_type": program_type,
         "spreadsheet_path": os.path.abspath(file_path),
+        "confidence_data": {
+            "satisfaction_rate": satisfaction_rate
+        },
         "avg_satisfaction_percent": round(avg_satisfaction / 5 * 100, 2),
         "satisfaction_counts": satisfaction_counts,
         "generated_date": pd.Timestamp.now().strftime("%Y-%m-%d"),

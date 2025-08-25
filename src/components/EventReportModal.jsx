@@ -1,4 +1,4 @@
-import React, { useRef } from "react"; 
+import React, { useRef, useState  } from "react"; 
 import PropTypes from "prop-types";
 import Modal from "react-modal";
 import html2canvas from "html2canvas";
@@ -8,6 +8,7 @@ import { Col, Row } from "reactstrap";
 
 const ViewReportModal = ({ isOpen, onClose, data, size = "xl" }) => {
   const contentRef = useRef(null);
+  const [hiddenIndexes, setHiddenIndexes] = useState([]);
 
   const modalWidths = {
     sm: "540px",
@@ -21,7 +22,8 @@ const ViewReportModal = ({ isOpen, onClose, data, size = "xl" }) => {
   const handleDownloadAsImage = async () => {
     const canvas = await html2canvas(contentRef.current);
     const link = document.createElement("a");
-    link.download = "report-summary.png";
+    const fileName = `${data?.spreadsheet_name || "report-summary"}.png`;
+    link.download = fileName;
     link.href = canvas.toDataURL();
     link.click();
   };
@@ -34,7 +36,8 @@ const ViewReportModal = ({ isOpen, onClose, data, size = "xl" }) => {
     const imgProps = pdf.getImageProperties(imgData);
     const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
     pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-    pdf.save("report-summary.pdf");
+    const fileName = `${data?.spreadsheet_name || "report-summary"}.pdf`;
+    pdf.save(fileName);
   };
 
   if (!data) return null;
@@ -132,12 +135,21 @@ const donutOptions = {
   legend: { position: "bottom" },
 };
 
-
-
-
-
   const satisfactionSeries = [data.confidence_data.satisfaction_rate];
   const series = [{ name: "Confidence Level", data: [pre, post] }];
+
+
+
+
+  const toggleFeedbackVisibility = (index) => {
+    // if wanting to permanently remove feedback on click
+    // setHiddenIndexes((prev) =>
+    //   prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
+    // );
+    setHiddenIndexes((prev) =>
+    prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
+  );
+  };
 
   return (
     <Modal
@@ -159,7 +171,7 @@ const donutOptions = {
       }}
     >
       <div className="modal-header" style={{ padding: "15px", background: "#f5f5f5", borderBottom: "1px solid #ddd" }}>
-        <h5 className="modal-title">{data.spreadsheetName} — Workshop Summary</h5>
+        <h5 className="modal-title">Summary for  {data?.spreadsheet_name} </h5>
         <button onClick={onClose} style={{ background: "transparent", border: "none", fontSize: "18px", cursor: "pointer" }}>
           &times;
         </button>
@@ -167,13 +179,16 @@ const donutOptions = {
 
       <div ref={contentRef} className="modal-body" style={{ padding: "20px 50px" }}>
         <Row>
-          <Col xs={12} md={6}>
-            {/* Chart */}
-            <div style={{ maxWidth: "600px", margin: "auto" }}>
-              <ReactApexChart options={chartOptions} series={series} type="bar"  />
-            </div>
-          </Col>
-          <Col xs={12} md={4} style={{ display: "flex", flexDirection: "column", marginTop: "50px" }}>
+          {data.program_type === "workshop" ? (
+            <Col xs={12} md={6}>
+              <div style={{ maxWidth: "600px", margin: "auto" }}>
+                <ReactApexChart options={chartOptions} series={series} type="bar" />
+              </div>
+            </Col>
+          ) : (""
+            
+          )}
+          <Col xs={12} md={6} style={{ display: "flex", flexDirection: "column", marginTop: "50px" }}>
             {/* Donut for Satisfaction Counts */}
               <ReactApexChart
                 options={donutOptions}
@@ -184,7 +199,16 @@ const donutOptions = {
           {/* <Col xs={12} md={2} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
           
           </Col> */}
-          <Col xs={12} md={3} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <Col
+            xs={12}
+            md={6}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              paddingTop: data.program_type === "networking_events" ? "50px" : "20px"
+            }}
+          >
             <div style={{ margin: "0 auto" }}>
               {/* Radial Bar for Satisfaction Rate */}
               <ReactApexChart
@@ -198,13 +222,8 @@ const donutOptions = {
         </Row>
         
 
-
-        
-
-
         {/* Statistics */}
-        {/* Statistics */}
-        <div style={{ marginTop: "20px" }}>
+        <div style={{ marginTop: "40px" }}>
           <p><strong>Average pre-workshop confidence level:</strong> {pre.toFixed(1)}%</p>
           <p><strong>Average post-workshop confidence level:</strong> {post.toFixed(1)}%</p>
           <p><strong>Confidence level increase:</strong> {increase.toFixed(1)}%</p>
@@ -215,17 +234,54 @@ const donutOptions = {
         </div>
 
 
-        {/* Feedback (optional if exists) */}
-        {data.generatedData?.comments?.length > 0 && (
-          <div style={{ marginTop: "20px" }}>
-            <h6>Additional feedback:</h6>
-            <ul>
-              {data.generatedData.comments.map((c, i) => (
-                <li key={i}>{c}</li>
-              ))}
-            </ul>
+        {data.additional_feedback?.length > 0 && (
+        <div style={{ marginTop: "20px" }}>
+          <h6>Participant Feedback:</h6>
+          <div style={{ display: "grid", gap: "10px" }}>
+            {data.additional_feedback.map((c, i) => (
+              !hiddenIndexes.includes(i) && (
+                <div
+                  key={i}
+                  style={{
+                    background: "#f9f9f9",
+                    padding: "10px 15px",
+                    borderRadius: "10px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <span 
+                      style={{ fontSize: "18px", marginRight: "20px", cursor: "pointer" }}
+                      title="Click to remove comment"                    
+                      onClick={() => toggleFeedbackVisibility(i)}
+                    >💬</span>
+                    <span>{c}</span>
+                  </div>
+                  {/* Hide Button */}
+                  {/* <span
+                    style={{
+                      cursor: "pointer",
+                      fontSize: "16px",
+                      marginLeft: "15px",
+                      color: "#888"
+                    }}
+                    title="Hide this comment"
+                    onClick={() => toggleFeedbackVisibility(i)}
+                  >
+                    ❌
+                  </span> */}
+                </div>
+              )
+            ))}
           </div>
-        )}
+        </div>
+      )}
+
+
+
       </div>
 
       <div className="modal-footer" style={{ padding: "15px", background: "#f5f5f5", borderTop: "1px solid #ddd", textAlign: "right" }}>
