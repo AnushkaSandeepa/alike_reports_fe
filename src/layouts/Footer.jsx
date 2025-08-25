@@ -14,9 +14,18 @@ export default function Footer() {
 								About
 							</Link>
 							&nbsp;
-							<Link to="https://alike.org.au/contact-us/" target="_blank">
+							{/* <Link to="https://alike.org.au/contact-us/" target="_blank">
 								Support
-							</Link>
+							</Link> */}
+							<a 
+								href="https://mail.google.com/mail/?view=cm&fs=1&to=anushkasandeepa111@gmail.com" 
+								target="_blank" 
+								rel="noopener noreferrer"
+								>
+								Support
+							</a>
+
+
 							&nbsp;
 							<Link to="https://alike.org.au/contact-us/" target="_blank">
 								Contact Us

@@ -71,4 +71,30 @@ module.exports = function () {
       return [];
     }
   });
+
+
+  ipcMain.handle("delete-report", async (event, reportId) => {
+  try {
+    const raw = await fs.promises.readFile(reportsDbPath, "utf8");
+    const db = JSON.parse(raw || "[]");
+
+    const exists = db.some(r => r.reportId === reportId);
+    if (!exists) return { success: false, error: `Report ${reportId} not found` };
+
+    const remaining = db.filter(r => r.reportId !== reportId);
+
+    const tmp = reportsDbPath + ".tmp";
+    await fs.promises.writeFile(tmp, JSON.stringify(remaining, null, 2), "utf8");
+    await fs.promises.rename(tmp, reportsDbPath);
+
+    return { success: true, remaining };
+  } catch (err) {
+    console.error("Delete error:", err);
+    return { success: false, error: err.message };
+  }
+});
+
+
+
+
 };

@@ -48,6 +48,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   getReports: () => ipcRenderer.invoke("get-reports"),
 
+  deleteReport: (id) => ipcRenderer.invoke("delete-report", id), 
+
   extractEventDate: (filePath) => ipcRenderer.invoke("extract-event-date", filePath),
 
 

@@ -27,7 +27,7 @@ const Logout = () => {
 								</h4>
 								<p className="text-muted mb-4">{t('You are now successfully sign out.')}</p>
 
-								<div className="logout-icon m-auto">
+								<div className="logout-icon m-auto"  style={{ pointerEvents: 'none' }}>
 									<svg
 										version="1.1"
 										id="Layer_1"
@@ -80,22 +80,26 @@ const Logout = () => {
 								</div>
 							</div>
 						</div>
-						<div className="mt-5 text-center">
-							<Link to="/account/login" >
-								<label ><span style={{color:"#064D5F" , fontWeight:400 }}>Retern to</span>
-								{t(' Login')}
-								</label>
+						<div className="mt-5 text-center pt-4">
+							<Link to="/account/login">
+								<span style={{ color: "#064D5F", fontWeight: 400 }}>
+									{t('Return to')}
+								</span>
+								<span>{t(' Login')}</span>
 							</Link>
+
 						</div>
-					</Col>
-					<Col md={4}></Col>
-				</Row>
-				<footer className="footer footer-alt">
+
+						<div className="mt-2 text-center">
 				{new Date().getFullYear()} © Alike -
 				<Link to="https://alike.org.au/" target="_blank">
 				alike.org.au
 				</Link>
-				</footer> 
+				</div> 
+					</Col>
+					<Col md={4}></Col>
+				</Row>
+				
 		</>
 	);
 };
