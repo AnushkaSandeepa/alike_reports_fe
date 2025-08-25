@@ -188,12 +188,13 @@ const donutOptions = {
           ) : (""
             
           )}
-          <Col xs={12} md={6} style={{ display: "flex", flexDirection: "column", marginTop: "50px" }}>
+          <Col xs={12} md={6} style={{ display: "flex", flexDirection: "column", marginTop: "30px" }}>
             {/* Donut for Satisfaction Counts */}
               <ReactApexChart
                 options={donutOptions}
                 series={donutSeries}
                 type="donut"
+                height ={300}
               />
           </Col>
           {/* <Col xs={12} md={2} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
