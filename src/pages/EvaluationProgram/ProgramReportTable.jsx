@@ -34,11 +34,15 @@ function EventReportGenerate() {
     const columns = useMemo(
         () => [
             {
+                Header: 'Report ID',
+                accessor: 'reportId',
+            },
+            {
                 Header: 'Used Spreadsheet Name',
                 accessor: 'spreadsheet_name',
             },
             {
-                Header: 'Used Sheet ID',
+                Header: 'Used Sheetsheet ID',
                 accessor: 'spreadsheet_id',
             },
             {
@@ -52,6 +56,11 @@ function EventReportGenerate() {
                 Header: 'Program Type',
                 accessor: 'program_type',
                 width: 200,
+            },
+            {
+                Header: 'Satisfaction Rate (%)',
+                accessor: 'confidence_data.satisfaction_rate',
+                width: 150,
             },
             {
                 Header: 'View',
