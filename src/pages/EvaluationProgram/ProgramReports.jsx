@@ -185,21 +185,25 @@ useEffect(() => {
       const result = await window.electronAPI.generateReport({
         spreadsheetId: sheet.fileId,
         spreadsheetPath: spreadsheet,
-        programType: programType,
+        programType,
         evaluationStartDate,
         evaluationEndDate,
       });
 
+      if (!result?.success) {
+        throw new Error(result?.error || "Report generation failed.");
+      }
       Swal.fire({ icon: "success", title: "Success!", text: "Report generated." });
       await fetchReports();
       setSpreadsheet("");
       setDateRange([]);
     } catch (error) {
-      Swal.fire({ icon: "error", title: "Error!", text: error.message || "Failed to generate report." });
+      Swal.fire({ icon: "error", title: "Error!", text: String(error?.message || error) });
     } finally {
       setIsGenerating(false);
     }
   };
+
 
 
   return (

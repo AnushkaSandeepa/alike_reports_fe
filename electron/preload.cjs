@@ -2,67 +2,41 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("electronAPI", {
-  // File picker — only pick, no upload
+  // File picker
   pickSpreadsheet: async () => {
     const result = await ipcRenderer.invoke("show-open-dialog", {
       title: "Select spreadsheet",
       properties: ["openFile"],
       filters: [{ name: "Sheets", extensions: ["csv", "xls", "xlsx"] }],
     });
-
     if (result.canceled || !result.filePaths.length) {
       return { success: false, error: "No file selected" };
     }
-
     return { success: true, filePath: result.filePaths[0] };
   },
 
-  // Upload the selected spreadsheet
-  storeSpreadsheet: async ({ sourcePath, programType, programDate }) => {
-    return await ipcRenderer.invoke("store-spreadsheet", {
-      sourcePath,
-      programType,
-      programDate,
-    });
-  },
+  // Store uploaded spreadsheet
+  storeSpreadsheet: ({ sourcePath, programType, programDate }) =>
+    ipcRenderer.invoke("store-spreadsheet", { sourcePath, programType, programDate }),
 
-  // Load uploaded metadata
-  getUploadedSheets: async () => {
-    return await ipcRenderer.invoke("get-uploaded-spreadsheets");
-  },
-
-  // Open folder in file explorer
+  getUploadedSheets: () => ipcRenderer.invoke("get-uploaded-spreadsheets"),
   openUploadFolder: () => ipcRenderer.send("open-upload-folder"),
-
-  // Delete a spreadsheet by fileId
   deleteSpreadsheet: (fileId) => ipcRenderer.invoke("delete-spreadsheet", fileId),
 
-
-  // Event based reports
-  generateReport: async ({
-    spreadsheetId,
-    spreadsheetPath,
-    programType,
-    evaluationStartDate,  
-    evaluationEndDate,    
-  }) => {
-    return await ipcRenderer.invoke("generate-report", {
+  // Event-based reports
+  generateReport: ({ spreadsheetId, spreadsheetPath, programType, evaluationStartDate, evaluationEndDate }) =>
+    ipcRenderer.invoke("generate-report", {
       spreadsheetId,
       spreadsheetPath,
       programType,
-      evaluationStartDate,  
-      evaluationEndDate,    
-    });
-  },
-
+      evaluationStartDate,
+      evaluationEndDate,
+    }),
   getReports: () => ipcRenderer.invoke("get-reports"),
-  deleteReport: (id) => ipcRenderer.invoke("delete-report", id), 
-  extractEventDate: (filePath) => ipcRenderer.invoke("extract-event-date", filePath),
+  deleteReport: (id) => ipcRenderer.invoke("delete-report", id),
 
-
-  // Period based reports
+  // Period-based (unchanged here)
   getPeriodReports: () => ipcRenderer.invoke("get-period-reports"),
   generatePeriodReport: ({ start, end }) => ipcRenderer.invoke("report_generator_period", { start, end }),
   deletePeriodReport: (id) => ipcRenderer.invoke("delete-period-report", id),
-
 });

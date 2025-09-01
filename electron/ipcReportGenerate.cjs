@@ -1,3 +1,4 @@
+// electron/ipReportGenerate.cjs
 const { app, ipcMain } = require("electron");
 const fs = require("fs");
 const path = require("path");
@@ -9,102 +10,163 @@ module.exports = function () {
   const lastReportIdPath = path.join(uploadsDir, "last_report_id.json");
 
   if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-  if (!fs.existsSync(reportsDbPath)) fs.writeFileSync(reportsDbPath, JSON.stringify([]));
-  if (!fs.existsSync(lastReportIdPath)) fs.writeFileSync(lastReportIdPath, JSON.stringify({ lastId: 0 }));
+  if (!fs.existsSync(reportsDbPath)) fs.writeFileSync(reportsDbPath, "[]", "utf-8");
+  if (!fs.existsSync(lastReportIdPath)) fs.writeFileSync(lastReportIdPath, JSON.stringify({ lastId: 0 }), "utf-8");
 
-  function getLastReportId() {
+  const getLastReportId = () => {
     try {
-      const lastIdData = JSON.parse(fs.readFileSync(lastReportIdPath, "utf-8"));
-      return lastIdData.lastId || 0;
-    } catch {
-      return 0;
+      const x = JSON.parse(fs.readFileSync(lastReportIdPath, "utf-8"));
+      return x.lastId || 0;
+    } catch { return 0; }
+  };
+  const saveLastReportId = (n) => fs.writeFileSync(lastReportIdPath, JSON.stringify({ lastId: n }), "utf-8");
+
+  // Prefer py -3 on Windows, otherwise python/python3; never run with a shell.
+  function getPythonCmdAndArgs(scriptPath, argv) {
+    if (process.platform === "win32") {
+      return [
+        "py",
+        ["-3", scriptPath, ...argv],
+      ];
     }
+    // macOS/Linux
+    return [
+      "python3",
+      [scriptPath, ...argv],
+    ];
   }
 
-  function saveLastReportId(num) {
-    fs.writeFileSync(lastReportIdPath, JSON.stringify({ lastId: num }), "utf-8");
-  }
-
-  ipcMain.handle("generate-report", async (event, {
+  ipcMain.handle("generate-report", async (_event, {
     spreadsheetId,
     spreadsheetPath,
     programType,
     evaluationStartDate,
-    evaluationEndDate,          
+    evaluationEndDate,
   }) => {
-    return new Promise(resolve => {
-      const pythonPath = process.platform === "win32" ? "python" : "python3";
+    return new Promise((resolve) => {
       const scriptPath = programType !== "networking_events"
         ? path.join(__dirname, "..", "scripts", "report_generator_workshop.py")
         : path.join(__dirname, "..", "scripts", "report_generator_networking.py");
 
-      const lastId = getLastReportId();
-      const reportNumber = lastId + 1;
-      const reportId = `R${reportNumber.toString().padStart(4, "0")}`;
-      saveLastReportId(reportNumber);
+      // Prepare a candidate reportId, but do NOT persist until Python succeeds.
+      const nextNum = getLastReportId() + 1;
+      const reportId = `R${String(nextNum).padStart(4, "0")}`;
 
-      const args = [scriptPath, spreadsheetPath, spreadsheetId, programType, reportId];
+      // REQUIRED positional order for your script:
+      // spreadsheet_path spreadsheet_id program_type report_id
+      const positional = [
+        spreadsheetPath,
+        spreadsheetId,
+        programType,
+        reportId,
+      ];
+
+      // Optional date-range flags
       if (evaluationStartDate && evaluationEndDate) {
-        args.push("--evaluationStart", evaluationStartDate, "--evaluationEnd", evaluationEndDate);
+        positional.push("--evaluationStart", evaluationStartDate, "--evaluationEnd", evaluationEndDate);
       }
 
-      const py = spawn(pythonPath, args, { cwd: __dirname });
+      const [cmd, args] = getPythonCmdAndArgs(scriptPath, positional);
 
-      let dataString = "", errorString = "";
-      py.stdout.on("data", (data) => dataString += data.toString());
-      py.stderr.on("data", (data) => errorString += data.toString());
+      const child = spawn(cmd, args, {
+        cwd: __dirname,
+        windowsHide: true,
+        shell: false, // IMPORTANT
+      });
 
-      py.on("close", (code) => {
-        if (code !== 0) return resolve({ success: false, error: errorString || `Python exited ${code}` });
+      let outBuf = "";
+      let errBuf = "";
 
-        try {
-          const clean = dataString.split("\n").filter(l => l.trim()).pop();
-          const resultJson = JSON.parse(clean);
+      child.stdout.on("data", (d) => (outBuf += d.toString()));
+      child.stderr.on("data", (d) => (errBuf += d.toString()));
 
-          const db = JSON.parse(fs.readFileSync(reportsDbPath, "utf-8")) || [];
-          db.push(resultJson);
-          fs.writeFileSync(reportsDbPath, JSON.stringify(db, null, 2), "utf-8");
-
-          resolve({ success: true, data: resultJson, reportId });
-        } catch (err) {
-          resolve({ success: false, error: "JSON parse error: " + err.message });
+      child.on("error", (err) => {
+        // If 'py' is not found on Windows, retry with 'python'
+        if (process.platform === "win32" && cmd === "py") {
+          const fallbackChild = spawn("python", [scriptPath, ...positional], {
+            cwd: __dirname,
+            windowsHide: true,
+            shell: false,
+          });
+          let fOut = "", fErr = "";
+          fallbackChild.stdout.on("data", (d) => (fOut += d.toString()));
+          fallbackChild.stderr.on("data", (d) => (fErr += d.toString()));
+          fallbackChild.on("close", (code) => {
+            handleClose(code, fOut, fErr);
+          });
+        } else {
+          resolve({ success: false, error: err.message || "Failed to start Python" });
         }
       });
+
+      child.on("close", (code) => handleClose(code, outBuf, errBuf));
+
+      function handleClose(code, stdout, stderr) {
+        if (code !== 0) {
+          return resolve({ success: false, error: (stderr || `Python exited ${code}`).trim() });
+        }
+
+        try {
+          // Parse the last JSON-looking line
+          const lines = stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+          if (!lines.length) throw new Error("No output from Python");
+          let parsed = null;
+          for (let i = lines.length - 1; i >= 0; i--) {
+            const line = lines[i];
+            if ((line.startsWith("{") && line.endsWith("}")) || (line.startsWith("[") && line.endsWith("]"))) {
+              try { parsed = JSON.parse(line); break; } catch {}
+            }
+          }
+          if (!parsed) parsed = JSON.parse(lines[lines.length - 1]);
+
+          // If Python explicitly signals failure (e.g., empty range)
+          if (parsed && parsed.success === false) {
+            return resolve({ success: false, error: parsed.error || "Report generation failed." });
+          }
+
+          if (parsed && !parsed.reportId) parsed.reportId = reportId;
+
+          // Only now persist the incremented id
+          saveLastReportId(nextNum);
+
+          // Save to DB
+          const db = JSON.parse(fs.readFileSync(reportsDbPath, "utf-8") || "[]");
+          db.push(parsed);
+          fs.writeFileSync(reportsDbPath, JSON.stringify(db, null, 2), "utf-8");
+
+          resolve({ success: true, data: parsed, reportId: parsed.reportId });
+        } catch (e) {
+          resolve({ success: false, error: "JSON parse error: " + e.message });
+        }
+      }
     });
   });
 
   ipcMain.handle("get-reports", async () => {
     try {
-      const rawData = await fs.promises.readFile(reportsDbPath, "utf8");
-      return JSON.parse(rawData);
+      const raw = await fs.promises.readFile(reportsDbPath, "utf-8");
+      return JSON.parse(raw || "[]");
     } catch {
       return [];
     }
   });
 
+  ipcMain.handle("delete-report", async (_event, reportId) => {
+    try {
+      const raw = await fs.promises.readFile(reportsDbPath, "utf-8");
+      const db = JSON.parse(raw || "[]");
 
-  ipcMain.handle("delete-report", async (event, reportId) => {
-  try {
-    const raw = await fs.promises.readFile(reportsDbPath, "utf8");
-    const db = JSON.parse(raw || "[]");
+      const exists = db.some((r) => r.reportId === reportId);
+      if (!exists) return { success: false, error: `Report ${reportId} not found` };
 
-    const exists = db.some(r => r.reportId === reportId);
-    if (!exists) return { success: false, error: `Report ${reportId} not found` };
+      const remaining = db.filter((r) => r.reportId !== reportId);
+      const tmp = reportsDbPath + ".tmp";
+      await fs.promises.writeFile(tmp, JSON.stringify(remaining, null, 2), "utf-8");
+      await fs.promises.rename(tmp, reportsDbPath);
 
-    const remaining = db.filter(r => r.reportId !== reportId);
-
-    const tmp = reportsDbPath + ".tmp";
-    await fs.promises.writeFile(tmp, JSON.stringify(remaining, null, 2), "utf8");
-    await fs.promises.rename(tmp, reportsDbPath);
-
-    return { success: true, remaining };
-  } catch (err) {
-    console.error("Delete error:", err);
-    return { success: false, error: err.message };
-  }
-});
-
-
-
-
+      return { success: true, remaining };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
 };

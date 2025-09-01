@@ -38,12 +38,12 @@ def parse_date(s):
 
 def find_event_date_series(df):
     candidates = [
-        "Event Date","Event date","Date of Event","Session Date","Workshop Date"
+        "Event Date","Event date","Date of Event","Session Date","Workshop Date","Date","Timestamp"
     ]
-    for name in df.columns:
+    for col in df.columns:
         for cand in candidates:
-            if str(name).strip().lower() == cand.lower():
-                s = df[name]
+            if str(col).strip().lower() == cand.lower():
+                s = df[col]
                 if pd.api.types.is_datetime64_any_dtype(s): return s.dt.date
                 return s.apply(parse_date)
     return None
@@ -58,7 +58,6 @@ def to_numeric_map(df, cols, which="confidence"):
     return out
 
 def infer_pre_post_by_marker(df):
-    """Try to locate a 'before/after' marker column and split questions accordingly."""
     marker_variants = [
         "Please mark whether this feedback is for before or after the workshop.",
         "Please mark whether this feedback is for before or after the session.",
@@ -69,10 +68,8 @@ def infer_pre_post_by_marker(df):
     for col in df.columns:
         for mv in marker_variants:
             if str(col).strip().lower() == mv.lower():
-                # Assume questions follow in the sequence: all-pre then all-post, with same length
                 start_idx = df.columns.get_loc(col) + 1
                 if start_idx >= len(df.columns): return [], [], []
-                # Try to determine the length of the "pre" block by comparing base labels
                 pre_cols = []
                 first = df.columns[start_idx]
                 base0 = " ".join(str(first).split()[:-2]) or str(first)
@@ -86,7 +83,6 @@ def infer_pre_post_by_marker(df):
                 post_start = start_idx + n_pre
                 post_cols = list(df.columns[post_start: post_start + n_pre])
 
-                # Satisfaction columns: scan beyond that for agreement-mapped values
                 tail = list(df.columns[post_start + n_pre:])
                 satisfaction_cols = []
                 for c in tail:
@@ -94,20 +90,17 @@ def infer_pre_post_by_marker(df):
                     if s.isin(AGREEMENT_MAP.keys()).any():
                         satisfaction_cols.append(c)
                 return pre_cols, post_cols, satisfaction_cols
-    return None  # no marker match
+    return None
 
 def infer_pre_post_by_pattern(df):
-    """Fallback: detect pairs of columns ending with Before/After markers."""
     pre_tokens  = ["(Before)","- Before","Before the workshop","Before"]
     post_tokens = ["(After)","- After","After the workshop","After"]
 
     def norm(s): return str(s).strip().lower()
 
-    # Build base-> (pre_col, post_col)
     pairs = {}
     for col in df.columns:
-        label = str(col)
-        l = norm(label)
+        l = norm(col)
         for t in pre_tokens:
             if l.endswith(t.lower()):
                 base = l[:-len(t)].strip()
@@ -123,35 +116,13 @@ def infer_pre_post_by_pattern(df):
             pre_cols.append(d["pre"])
             post_cols.append(d["post"])
 
-    # Satisfaction columns: anything with AGREEMENT_MAP values
     satisfaction_cols = []
     for c in df.columns:
         s = df[c].dropna().astype(str).str.strip()
         if s.isin(AGREEMENT_MAP.keys()).any():
             satisfaction_cols.append(c)
-
-    # Remove any pre/post columns from satisfaction list if they overlap
     satisfaction_cols = [c for c in satisfaction_cols if c not in pre_cols + post_cols]
     return pre_cols, post_cols, satisfaction_cols
-
-def zero_report(file_path, spreadsheet_id, program_type, report_id, eval_start, eval_end):
-    return {
-        "reportId": report_id,
-        "spreadsheet_id": spreadsheet_id,
-        "spreadsheet_name": Path(file_path).stem,
-        "program_type": program_type,
-        "spreadsheet_path": os.path.abspath(file_path),
-        "confidence_data": {
-            "pre_percent": 0.0,
-            "post_percent": 0.0,
-            "increase_percent": 0.0,
-            "satisfaction_rate": 0.0,
-        },
-        "satisfaction_counts": {k: 0 for k in AGREEMENT_MAP.keys()},
-        "generated_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
-        "evaluation_start": eval_start,
-        "evaluation_end": eval_end,
-    }
 
 def main():
     p = argparse.ArgumentParser()
@@ -176,29 +147,43 @@ def main():
             if end:   mask &= ed.apply(lambda d: d is not None and d <= end)
             df = df[mask].copy()
 
-    if df.empty:
-        print(json.dumps(zero_report(args.spreadsheet_path, args.spreadsheet_id,
-                                     args.program_type, args.report_id,
-                                     args.eval_start, args.eval_end),
-                         ensure_ascii=False))
-        return
+        if df.empty:
+            print(json.dumps({
+                "success": False,
+                "error": "No rows found within the selected date range.",
+                "reportId": args.report_id,
+                "spreadsheet_id": args.spreadsheet_id,
+                "spreadsheet_name": Path(args.spreadsheet_path).stem,
+                "program_type": args.program_type,
+                "spreadsheet_path": os.path.abspath(args.spreadsheet_path),
+                "generated_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
+                "evaluation_start": args.eval_start,
+                "evaluation_end": args.eval_end,
+            }, ensure_ascii=False))
+            return
 
-    # Try marker method, else pattern method
     found = infer_pre_post_by_marker(df)
     if found is None:
         pre_cols, post_cols, satisfaction_cols = infer_pre_post_by_pattern(df)
     else:
         pre_cols, post_cols, satisfaction_cols = found
 
-    # If we still can't infer anything, return a safe zero report
+    # If we still can't infer the key columns, treat that as a failure
     if not pre_cols and not post_cols and not satisfaction_cols:
-        print(json.dumps(zero_report(args.spreadsheet_path, args.spreadsheet_id,
-                                     args.program_type, args.report_id,
-                                     args.eval_start, args.eval_end),
-                         ensure_ascii=False))
+        print(json.dumps({
+            "success": False,
+            "error": "Could not infer pre/post/satisfaction columns for this sheet.",
+            "reportId": args.report_id,
+            "spreadsheet_id": args.spreadsheet_id,
+            "spreadsheet_name": Path(args.spreadsheet_path).stem,
+            "program_type": args.program_type,
+            "spreadsheet_path": os.path.abspath(args.spreadsheet_path),
+            "generated_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
+            "evaluation_start": args.eval_start,
+            "evaluation_end": args.eval_end,
+        }, ensure_ascii=False))
         return
 
-    # Satisfaction counts
     satisfaction_counts = {k:0 for k in AGREEMENT_MAP.keys()}
     for c in satisfaction_cols:
         if c not in df: continue
@@ -207,7 +192,6 @@ def main():
         for k in AGREEMENT_MAP.keys():
             satisfaction_counts[k] += int(vc.get(k, 0))
 
-    # Numerics
     df_pre  = to_numeric_map(df, pre_cols,  "confidence")
     df_post = to_numeric_map(df, post_cols, "confidence")
     df_sat  = to_numeric_map(df, satisfaction_cols, "agreement")
@@ -217,7 +201,6 @@ def main():
     inc_pct  = round(post_pct - pre_pct, 2)
     sat_pct  = round(safe_float(df_sat[satisfaction_cols].mean().mean() / 5 * 100), 2) if satisfaction_cols else 0.0
 
-    # Additional feedback (2+ words)
     feedback = []
     if "Additional feedback" in df.columns:
         feedback = [fb for fb in df["Additional feedback"].dropna().astype(str).str.strip()
@@ -240,9 +223,9 @@ def main():
         "evaluation_start": args.eval_start,
         "evaluation_end": args.eval_end,
     }
-    if feedback: result["additional_feedback"] = feedback
+    if feedback:
+        result["additional_feedback"] = feedback
 
-    # IMPORTANT: only print JSON
     print(json.dumps(result, ensure_ascii=False))
 
 if __name__ == "__main__":
