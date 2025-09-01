@@ -118,7 +118,7 @@ const AnnualReportTableContainer = ({
     <Fragment>
       <Stack className="py-3 mb-3" alignItems="center" justifyContent="space-between">
         <div className="fs-5" style={{ fontSize: '24px', fontWeight: '700' }}>
-          Annual Evaluation
+          Annual/Period Evaluation
         </div>
       
       </Stack>

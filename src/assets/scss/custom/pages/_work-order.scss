@@ -53,8 +53,22 @@
 
   .flatpickr-current-month .flatpickr-monthDropdown-months{
     background: none !important;
-    color: none !important;
+    color: black !important;
   }
+
+    .flatpickr-current-month .flatpickr-monthDropdown-months:hover{
+    background: gray !important;
+  }
+
+  .flatpickr-current-month input.cur-year:hover{
+    background: gray !important;
+    color: black !important;
+  }
+
+    .flatpickr-current-month input.cur-year{
+    color: black !important;
+  }
+
 
   .date-buttion-alike{
     display: block !important;
