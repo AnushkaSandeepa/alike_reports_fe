@@ -7,6 +7,7 @@ const isDev = process.env.NODE_ENV === 'development';
 // Import all IPC handlers
 require('./ipcHandlers.cjs')(ipcMain);
 require('./ipcReportGenerate.cjs')(ipcMain);
+require('./ipcPeriodReports.cjs')(ipcMain);
 
 function createWindow() {
   const win = new BrowserWindow({

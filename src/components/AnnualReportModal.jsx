@@ -1,195 +1,329 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef } from "react";
 import PropTypes from "prop-types";
 import Modal from "react-modal";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import ReactApexChart from "react-apexcharts";
 
-
 const ViewAnnualReportModal = ({ isOpen, onClose, data, size = "xl" }) => {
   const contentRef = useRef(null);
 
-  const modalWidths = {
-    sm: "540px",
-    md: "720px",
-    lg: "960px",
-    xl: "1140px",
-    xxl: "1320px"
+  // ----- Helpers -----
+  const toPct = (n) =>
+    typeof n === "number" && isFinite(n) ? Math.round(n * 100) / 100 : null;
+
+  // Guard: if no data yet
+  if (!data) return null;
+
+  // Shape we expect (from your sample)
+  const {
+    reportType,
+    start_date,
+    end_date,
+    generated_date,
+    included_report_ids = [],
+    counts = {},
+    aggregates = {},
+    periodReportId,
+  } = data;
+
+  // Pull aggregates safely
+  const ne = aggregates.networking_events || {};
+  const ws = aggregates.workshop || {};
+  const ov = aggregates.overall || {};
+
+  const networkingSatisfaction = toPct(ne.avg_satisfaction_percent);
+  const workshopPre = toPct(ws.avg_pre_percent);
+  const workshopPost = toPct(ws.avg_post_percent);
+  const workshopIncrease = toPct(ws.avg_increase_percent);
+  const workshopSatisfaction = toPct(ws.avg_satisfaction_percent);
+  const overallSatisfaction = toPct(ov.avg_satisfaction_percent);
+
+  // Chart 1: Networking Satisfaction (single bar if present)
+  const networkingSeries = [
+    {
+      name: "Avg Satisfaction",
+      data: networkingSatisfaction != null ? [networkingSatisfaction] : [],
+    },
+  ];
+  const networkingOptions = {
+    chart: { type: "bar", toolbar: { show: false } },
+    plotOptions: {
+      bar: { horizontal: false, columnWidth: "50%", endingShape: "rounded" },
+    },
+    dataLabels: {
+      enabled: true,
+      formatter: (val) => `${val}%`,
+    },
+    xaxis: {
+      categories: ["Networking Satisfaction"],
+    },
+    yaxis: { max: 100, title: { text: "Percentage (%)" } },
   };
 
-  const width = modalWidths[size] || "720px";
+  // Chart 2: Workshop metrics (up to four bars if present)
+  const workshopCategories = [];
+  const workshopData = [];
+  if (workshopPre != null) { workshopCategories.push("Workshop Pre"); workshopData.push(workshopPre); }
+  if (workshopPost != null) { workshopCategories.push("Workshop Post"); workshopData.push(workshopPost); }
+  if (workshopIncrease != null) { workshopCategories.push("Workshop Increase"); workshopData.push(workshopIncrease); }
+  if (workshopSatisfaction != null) { workshopCategories.push("Workshop Satisfaction"); workshopData.push(workshopSatisfaction); }
 
+  // Derive numbers for the chart (fallbacks keep the chart stable)
+  const pre = Number.isFinite(workshopPre) ? workshopPre : 0;
+  const post = Number.isFinite(workshopPost) ? workshopPost : 0;
+  const increase = Number.isFinite(workshopIncrease) ? workshopIncrease : (post - pre);
+
+  // The series used by the Pre/Post bar chart
+  const confidenceSeries = [{ name: "Confidence", data: [workshopPre , workshopPost] }];
+
+
+  const workshopSeries = [{ name: "Workshop", data: workshopData }];
+  const confidenceOptions = {
+    chart: { type: "bar", height: 350, toolbar: { show: false } },
+    plotOptions: {
+      bar: { horizontal: false, columnWidth: "50%", endingShape: "rounded", distributed: true }
+    },
+    dataLabels: { enabled: true, formatter: (val) => `${val}%` },
+    xaxis: { categories: ["Pre-Workshop", "Post-Workshop"] },
+    yaxis: { max: 100, title: { text: "Confidence Level (%)" } },
+    colors: ["#ff2949ff", "#00d17aff"],
+    annotations: {
+      yaxis: [
+        {
+          y: workshopPost,
+          borderColor: "#008FFB",
+          label: {
+            text: `+${increase.toFixed(1)}% confidence increment`,
+            style: { background: "#008FFB", color: "#fff" }
+          }
+        }
+      ]
+    }
+  };
+
+  // Downloads
   const handleDownloadAsImage = async () => {
+    if (!contentRef.current) return;
     const canvas = await html2canvas(contentRef.current);
     const link = document.createElement("a");
-    link.download = "report-summary.png";
-    link.href = canvas.toDataURL();
+    link.download = `period-report-${periodReportId || "summary"}.png`;
+    link.href = canvas.toDataURL("image/png");
     link.click();
   };
 
   const handleDownloadAsPDF = async () => {
+    if (!contentRef.current) return;
     const canvas = await html2canvas(contentRef.current);
     const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF();
-    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
     const imgProps = pdf.getImageProperties(imgData);
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-    pdf.save("report-summary.pdf");
+    const ratio = Math.min(pageWidth / imgProps.width, pageHeight / imgProps.height);
+    const imgW = imgProps.width * ratio;
+    const imgH = imgProps.height * ratio;
+    const x = (pageWidth - imgW) / 2;
+    const y = 20;
+    pdf.addImage(imgData, "PNG", x, y, imgW, imgH);
+    pdf.save(`period-report-${periodReportId || "summary"}.pdf`);
   };
 
-  if (!data) return null;
-
-  // Fallback or dynamic stats from `data`
-  const stats = data?.feedback || {
-    satisfaction: 83,
-    connected: 80,
-    equipped: 78
-  };
-
-  const chartOptions = {
-    chart: {
-      type: 'bar',
-      height: 350,
-      toolbar: { show: false }
-    },
+  const makeRadialOptions = (label, color) => ({
+    chart: { type: "radialBar" },
     plotOptions: {
-      bar: {
-        horizontal: false,
-        columnWidth: '50%',
-        endingShape: 'rounded',
-        distributed: true
-      }
+      radialBar: {
+        hollow: { size: "65%" },
+        dataLabels: {
+          name: { show: true, fontSize: "14px", offsetY: 0 },
+          value: { show: true, fontSize: "22px", formatter: (val) => `${val}%` },
+        },
+      },
     },
-    dataLabels: {
-      enabled: true,
-      formatter: (val) => `${val}%`
-    },
-    xaxis: {
-      categories: [
-        'Networking Satisfaction',
-        'Felt More Connected',
-        'Felt More Equipped'
-      ]
-    },
-    yaxis: {
-      max: 100,
-      title: {
-        text: 'Percentage (%)'
-      }
-    },
-    colors: ['#008FFB', '#00E396', '#FEB019']
-  };
-
-  const series = [
-    {
-      name: "Feedback Score",
-      data: [stats.satisfaction, stats.connected, stats.equipped]
-    }
-  ];
+    labels: [label],
+    colors: [color],
+  });
 
   return (
     <Modal
       isOpen={isOpen}
       onRequestClose={onClose}
-      contentLabel="Annual Networking Report"
+      contentLabel="Period Report"
       style={{
-        overlay: {
-          zIndex: 9999,
-          backgroundColor: "rgba(0, 0, 0, 0.5)"
-        },
+        overlay: { zIndex: 9999, backgroundColor: "rgba(0,0,0,0.5)" },
         content: {
           width: "90%",
-          maxWidth: "900px",
+          maxWidth: "1000px",
           margin: "auto",
-          padding: "0",
+          padding: 0,
           borderRadius: "10px",
           display: "flex",
           flexDirection: "column",
-          maxHeight: "800px",
-        }
+          maxHeight: "90vh",
+        },
       }}
     >
       {/* Header */}
       <div
         className="modal-header"
-        style={{
-          padding: "15px",
-          background: "#f5f5f5",
-          borderBottom: "1px solid #ddd"
-        }}
+        style={{ padding: 15, background: "#f5f5f5", borderBottom: "1px solid #ddd" }}
       >
-        <h5 className="modal-title">Networking Session Feedback</h5>
+        <div>
+          <h5 className="modal-title" style={{ marginBottom: 4 }}>
+            Period Report {periodReportId ? `— ${periodReportId}` : ""}
+          </h5>
+          <div className="small text-muted">
+            Range: <strong>{start_date}</strong> to <strong>{end_date}</strong> &middot; Generated on: {generated_date}
+          </div>
+        </div>
         <button
           onClick={onClose}
-          style={{
-            background: "transparent",
-            border: "none",
-            fontSize: "18px",
-            cursor: "pointer"
-          }}
+          style={{ background: "transparent", border: "none", fontSize: 18, cursor: "pointer" }}
+          aria-label="Close"
         >
           &times;
         </button>
       </div>
 
       {/* Body */}
-      <div ref={contentRef} className="modal-body" style={{ padding: "20px" }}>
-        {/* Bar Chart */}
-        <div style={{ maxWidth: "700px", margin: "auto" }}>
-          <ReactApexChart
-            options={chartOptions}
-            series={series}
-            type="bar"
-            height={350}
-          />
+      <div ref={contentRef} className="modal-body" style={{ padding: 20, overflowY: "auto" }}>
+        {/* High-level counts */}
+        <div className="row g-3" style={{ marginBottom: 12 }}>
+          <div className="col-auto">
+            <div className="badge bg-success-subtle text-success  p-2">
+              Total Reports: <strong>{counts.total_reports ?? 0}</strong>
+            </div>
+          </div>
+          <div className="col-auto">
+            <div className="badge  bg-primary-subtle text-primary p-2">
+              Networking: <strong>{counts.networking_events ?? 0}</strong>
+            </div>
+          </div>
+          <div className="col-auto">
+            <div className="badge bg-warning-subtle text-warning p-2">
+              Workshops: <strong>{counts.workshops ?? 0}</strong>
+            </div>
+          </div>
         </div>
 
-        {/* Statistics */}
-        <div style={{ marginTop: "30px" }}>
-          <p>
-            <strong>Networking Satisfaction Rate:</strong>{" "}
-            {stats.satisfaction}%
-          </p>
-          <p>
-            <strong>Felt More Connected:</strong> {stats.connected}%
-          </p>
-          <p>
-            <strong>Felt More Equipped:</strong> {stats.equipped}%
-          </p>
+        {/* Included report IDs */}
+        <div style={{ marginBottom: 20 }}>
+          <h6 className="mb-2">Included report IDs</h6>
+          <div style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+            {included_report_ids && included_report_ids.length
+              ? included_report_ids.join(", ")
+              : "—"}
+          </div>
         </div>
 
-        {/* Comments */}
-        <div style={{ marginTop: "20px" }}>
-            <h6>Comments:</h6>
-            <ul>
-                <li>“I found the conflict resolution hints and tips most valuable”</li>
-                <li>“An interesting, informative workshop!”</li>
-            </ul>
+
+        <div className="row g-3 mt-3">
+          <h6 className="mb-2">Satisfaction</h6>
+          {overallSatisfaction != null && (
+            <div className="col-md-3 col-6 d-flex justify-content-center">
+              <ReactApexChart
+                options={makeRadialOptions("Overall", "#00E396")}
+                series={[overallSatisfaction]}
+                type="radialBar"
+                height={190}
+              />    
+            </div>  
+          )}
+
+          {networkingSatisfaction != null && (
+            <div className="col-md-3 col-6 d-flex justify-content-center">
+              <ReactApexChart
+                options={makeRadialOptions("Networking", "#008FFB")}
+                series={[networkingSatisfaction]}
+                type="radialBar"
+                height={190}
+              />
+            </div>
+          )}
+
+          {workshopSatisfaction != null && (
+            <div className="col-md-3 col-6 d-flex justify-content-center">
+              <ReactApexChart
+                options={makeRadialOptions("Workshop", "#FEB019")}
+                series={[workshopSatisfaction]}
+                type="radialBar"
+                height={190}
+              />
+            </div>
+          )}
         </div>
 
+        <h6 className="mb-2">Overall Workshop Confidence (Pre vs Post)</h6>
+        {workshopPre != null && workshopPost != null && (
+          <div style={{ maxWidth: 800, margin: "20px auto" }}>
+            <ReactApexChart
+              options={confidenceOptions}
+              series={confidenceSeries}
+              type="bar"
+              height={350}
+            />
+          </div>
+        )}
+
+        {/* Quick numeric summary (useful alongside charts) */}
+        <div style={{ marginTop: 24 }}>
+          <div className="row g-3">
+            {networkingSatisfaction != null && (
+              <div className="col-md-3 col-6">
+                <div className="p-3 border rounded">
+                  <div className="small text-muted">Networking Satisfaction</div>
+                  <div style={{ fontSize: 20, fontWeight: 700 }}>
+                    {networkingSatisfaction}%
+                  </div>
+                </div>
+              </div>
+            )}
+            {workshopSatisfaction != null && (
+              <div className="col-md-3 col-6">
+                <div className="p-3 border rounded">
+                  <div className="small text-muted">Workshop Satisfaction</div>
+                  <div style={{ fontSize: 20, fontWeight: 700 }}>{workshopSatisfaction}%</div>
+                </div>
+              </div>
+            )}
+            {workshopPre != null && (
+              <div className="col-md-3 col-6">
+                <div className="p-3 border rounded">
+                  <div className="small text-muted">Workshop Pre</div>
+                  <div style={{ fontSize: 20, fontWeight: 700 }}>{workshopPre}%</div>
+                </div>
+              </div>
+            )}
+            {workshopPost != null && (
+              <div className="col-md-3 col-6">
+                <div className="p-3 border rounded">
+                  <div className="small text-muted">Workshop Post</div>
+                  <div style={{ fontSize: 20, fontWeight: 700 }}>{workshopPost}%</div>
+                </div>
+              </div>
+            )}
+            {workshopIncrease != null && (
+              <div className="col-md-3 col-6">
+                <div className="p-3 border rounded">
+                  <div className="small text-muted">Workshop Increase</div>
+                  <div style={{ fontSize: 20, fontWeight: 700 }}>{workshopIncrease}%</div>
+                </div>
+              </div>
+            )}
+            
+          </div>
+        </div>
       </div>
 
       {/* Footer */}
       <div
         className="modal-footer"
-        style={{
-          padding: "15px",
-          background: "#f5f5f5",
-          borderTop: "1px solid #ddd",
-          textAlign: "right"
-        }}
+        style={{ padding: 15, background: "#f5f5f5", borderTop: "1px solid #ddd", textAlign: "right" }}
       >
-        <button
-          className="btn btn-outline-primary me-2"
-          onClick={handleDownloadAsImage}
-        >
+        <button className="btn btn-outline-primary me-2" onClick={handleDownloadAsImage}>
           Download as Image
         </button>
-        <button
-          className="btn btn-outline-danger me-2"
-          onClick={handleDownloadAsPDF}
-        >
+        <button className="btn btn-outline-danger me-2" onClick={handleDownloadAsPDF}>
           Download as PDF
         </button>
         <button className="btn btn-secondary" onClick={onClose}>
@@ -203,8 +337,20 @@ const ViewAnnualReportModal = ({ isOpen, onClose, data, size = "xl" }) => {
 ViewAnnualReportModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  data: PropTypes.object, // should contain a `feedback` field
-  size: PropTypes.string
+  data: PropTypes.shape({
+    reportType: PropTypes.string,
+    start_date: PropTypes.string,
+    end_date: PropTypes.string,
+    generated_date: PropTypes.string,
+    included_report_ids: PropTypes.arrayOf(PropTypes.string),
+    counts: PropTypes.object,
+    aggregates: PropTypes.shape({
+      networking_events: PropTypes.object,
+      workshop: PropTypes.object,
+    }),
+    periodReportId: PropTypes.string,
+  }),
+  size: PropTypes.string,
 };
 
 export default ViewAnnualReportModal;

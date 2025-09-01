@@ -36,7 +36,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Delete a spreadsheet by fileId
   deleteSpreadsheet: (fileId) => ipcRenderer.invoke("delete-spreadsheet", fileId),
-  
+
 
   // Event based reports
   generateReport: async ({ spreadsheetId, spreadsheetPath, programType }) => {
@@ -53,7 +53,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Period based reports
   getPeriodReports: () => ipcRenderer.invoke("get-period-reports"),
-  generatePeriodReport: ({ start, end }) => ipcRenderer.invoke("generate-period-report", { start, end }),
+  generatePeriodReport: ({ start, end }) => ipcRenderer.invoke("report_generator_period", { start, end }),
   deletePeriodReport: (id) => ipcRenderer.invoke("delete-period-report", id),
 
 });

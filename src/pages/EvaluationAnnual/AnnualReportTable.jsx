@@ -1,172 +1,145 @@
-// src/components/filter.
-import React, { useMemo } from "react";
-import PropTypes from 'prop-types';
+// src/components/filter/EventReportGenerate.jsx
+import React, { useMemo, useState, useEffect, useCallback } from "react";
+import PropTypes from "prop-types";
 import AnnualReportTableContainer from "./AnnualReports";
-import { useState } from "react";
-import { FaEye } from "react-icons/fa"; // You can install with: npm install react-icons
+import { FaEye, FaTrashAlt } from "react-icons/fa"; // <-- import trash icon
+import Swal from "sweetalert2";
 import ViewAnnualReportModal from "@/components/AnnualReportModal";
 
-//import components
-
 function EventReportGenerate() {
+  const [annualModalIsOpen, setAnnualModalIsOpen] = useState(false);
+  const [annualSelectedRow, setAnnualSelectedRow] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-    const [annualmodalIsOpen, setAnnualModalIsOpen] = useState(false);
-    const [annualSelectedRow, setAnnualSelectedRow] = useState(null);
+  // fetch all saved period reports
+  const fetchPeriodReports = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await window.electronAPI.getPeriodReports();
+      const arr = Array.isArray(res) ? res : (res?.data || []);
+      setRows(arr);
+    } catch (e) {
+      console.error(e);
+      Swal.fire({ icon: "error", title: "Error", text: "Failed to load period reports." });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    const columns = useMemo(
-        () => [
-            {
-            Header: 'Report ID',
-            accessor: 'age',
-            },
-            {
-            Header: 'Generated date',
-            accessor: 'startDate',
-            minWidth: 150,      // Minimum width (won't go smaller than 150px)
-            maxWidth: 250,      // Maximum width (won't go wider than 250px)
-            },
-            {
-            Header: 'Generated Date Range',
-            accessor: 'name',
-            width: 200,         
-            },
-            {
-            Header: 'Used File Name',
-            accessor: 'office',
-            width: 200,         
-            },
-            {
-            Header: 'View',
-            width: 100,
-            Cell: ({ row }) => (
-                <FaEye
-                style={{ cursor: 'pointer', color: '#007bff' }}
-                onClick={() => {
-                    setAnnualSelectedRow(row.original);
-                    setAnnualModalIsOpen(true);
-                }}
-                />
-            ),
-            }
-            
+  useEffect(() => { fetchPeriodReports(); }, [fetchPeriodReports]);
 
-        ],
-        []
-        );
+  // auto-refresh when main sends updates (generation or deletion)
+  useEffect(() => {
+    const offUpdated = window.electronAPI.on?.("period-updated", () => fetchPeriodReports()) || (() => {});
+    return () => offUpdated();
+  }, [fetchPeriodReports]);
 
-    const data = [
-        {
-            "name": "Jennifer Chang",
-            "position": "Regional Director",
-            "age": 28,
-            "office": "Singapore",
-            "startDate": "2010/11/14",
-            "salary": "$357,650"
-        },
-        {
-            "name": "Gavin Joyce",
-            "position": "Developer",
-            "age": 42,
-            "office": "Edinburgh",
-            "startDate": "2010/12/22",
-            "salary": "$92,575"
-        },
-        {
-            "name": "Angelica Ramos",
-            "position": "Chief Executive Officer (CEO)",
-            "age": 47,
-            "office": "London",
-            "startDate": "2009/10/09",
-            "salary": "$1,200,000"
-        },
-        {
-            "name": "Doris Wilder",
-            "position": "Sales Assistant",
-            "age": 23,
-            "office": "Sidney",
-            "startDate": "2010/09/20",
-            "salary": "$85,600"
-        },
-        {
-            "name": "Caesar Vance",
-            "position": "Pre-Sales Support",
-            "age": 21,
-            "office": "New York",
-            "startDate": "2011/12/12",
-            "salary": "$106,450"
-        },
-        {
-            "name": "Yuri Berry",
-            "position": "Chief Marketing Officer (CMO)",
-            "age": 40,
-            "office": "New York",
-            "startDate": "2009/06/25",
-            "salary": "$675,000"
-        },
-        {
-            "name": "Jenette Caldwell",
-            "position": "Development Lead",
-            "age": 30,
-            "office": "New York",
-            "startDate": "2011/09/03",
-            "salary": "$345,000"
-        },
-        {
-            "name": "Dai Rios",
-            "position": "Personnel Lead",
-            "age": 35,
-            "office": "Edinburgh",
-            "startDate": "2012/09/26",
-            "salary": "$217,500"
-        },
-        {
-            "name": "Bradley Greer",
-            "position": "Software Engineer",
-            "age": 41,
-            "office": "London",
-            "startDate": "2012/10/13",
-            "salary": "$132,000"
-        },
-        {
-            "name": "Gloria Little",
-            "position": "Systems Administrator",
-            "age": 59,
-            "office": "New York",
-            "startDate": "2009/04/10",
-            "salary": "$237,500"
-        }
-    ];
+  // delete handler
+  const handleDelete = useCallback(async (periodReportId) => {
+    const confirm = await Swal.fire({
+      icon: "warning",
+      title: "Delete this period report?",
+      text: periodReportId,
+      showCancelButton: true,
+      confirmButtonText: "Delete",
+      cancelButtonText: "Cancel",
+    });
+    if (!confirm.isConfirmed) return;
 
-    //meta title
-    document.title = "Data Tables | Skote - React Admin & Dashboard Template";
+    try {
+      const res = await window.electronAPI.deletePeriodReport(periodReportId);
+      if (!res?.success) throw new Error(res?.error || "Delete failed.");
+      Swal.fire({ icon: "success", title: "Deleted", timer: 1200, showConfirmButton: false });
+      // The "period-updated" event from main will also trigger a refresh,
+      // but we can optimistically update the list too:
+      setRows((prev) => prev.filter((r) => r.periodReportId !== periodReportId));
+    } catch (e) {
+      console.error(e);
+      Swal.fire({ icon: "error", title: "Error", text: e?.message || "Delete failed." });
+    }
+  }, []);
 
-    return (
-        <div className="page-content">
-            <div className="container-fluid">
-                {/* <Table columns={columns} data={data} /> */}
-                <AnnualReportTableContainer
-                    columns={columns}
-                    data={data}
-                    isGlobalFilter={true}
-                    isAddOptions={false}
-                    customPageSize={8}
-                    className="custom-header-css"
-                />
-            </div>
+  // columns (now use real period report fields)
+  const columns = useMemo(
+    () => [
+      { Header: "Report ID", accessor: "periodReportId" },
+      { Header: "Generated date", accessor: "generated_date", minWidth: 150, maxWidth: 250 },
+      {
+        Header: "Generated Date Range",
+        id: "date_range",
+        accessor: (row) => {
+          const s = row.start_date ?? "—";
+          const e = row.end_date ?? "—";
+          return `${s} to ${e}`;
+        },
+      },
+      {
+        Header: "Used Reports",
+        id: "used_files",
+        accessor: (row) => (row.included_report_ids || []).join(", "),
+        width: 200,
+      },
+      {
+        Header: "View",
+        width: 80,
+        Cell: ({ row }) => (
+          <FaEye
+            title="View"
+            style={{ cursor: "pointer", color: "#007bff" }}
+            onClick={() => {
+              setAnnualSelectedRow(row.original);
+              setAnnualModalIsOpen(true);
+            }}
+          />
+        ),
+      },
+      {
+        Header: "Delete",
+        width: 80,
+        Cell: ({ row }) => {
+          const r = row.original;
+          return (
+            <FaTrashAlt
+              title="Delete"
+              style={{ cursor: "pointer", color: "#dc3545" }}
+              onClick={() => handleDelete(r.periodReportId)} // <-- wire it here
+            />
+          );
+        },
+      },
+    ],
+    [handleDelete]
+  );
 
-            <ViewAnnualReportModal
-                isOpen={annualmodalIsOpen}
-                onClose={() => setAnnualModalIsOpen(false)}
-                data={annualSelectedRow}
-                />
+  // meta title (optional)
+  document.title = "Period Reports | Alike";
 
-        </div>
-    );
+  return (
+    <div className="page-content">
+      <div className="container-fluid">
+        <AnnualReportTableContainer
+          columns={columns}
+          data={rows}                 // <-- use live data
+          isGlobalFilter={true}
+          isAddOptions={false}
+          customPageSize={8}
+          className="custom-header-css"
+          loading={loading}           // if your container supports it
+        />
+      </div>
+
+      <ViewAnnualReportModal
+        isOpen={annualModalIsOpen}
+        onClose={() => setAnnualModalIsOpen(false)}
+        data={annualSelectedRow}
+      />
+    </div>
+  );
 }
+
 EventReportGenerate.propTypes = {
-    preGlobalFilteredRows: PropTypes.any,
-
+  preGlobalFilteredRows: PropTypes.any,
 };
-
 
 export default EventReportGenerate;

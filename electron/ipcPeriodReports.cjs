@@ -35,11 +35,11 @@ module.exports = function () {
 
   const resolveScript = () => {
     const base = app.isPackaged ? process.resourcesPath : path.join(__dirname, "..");
-    return path.join(base, "scripts", "period_report_generator.py");
+    return path.join(base, "scripts", "report_generator_period.py");
   };
 
   // --- Generate a period report (aggregated annual/period output) ---
-  ipcMain.handle("generate-period-report", async (event, { start, end }) => {
+  ipcMain.handle("report_generator_period", async (event, { start, end }) => {
     if (!start || !end) return { success: false, error: "Start and end are required (YYYY-MM-DD)" };
     if (!fs.existsSync(confidenceDbPath)) return { success: false, error: "confidence_data_db.json not found" };
 

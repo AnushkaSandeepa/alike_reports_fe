@@ -4,9 +4,11 @@ import {
   Col,
   Card,
   Form,
+  Input,
   CardBody,
   Container,
   InputGroup,
+  FormGroup,
 } from "reactstrap";
 import Flatpickr from "react-flatpickr";
 import Swal from "sweetalert2";
@@ -171,27 +173,7 @@ const SheetUpload = () => {
                       </select>
                     </Col>
 
-                    <Col md={4} className="mb-3" title="Make sure your data file has a column named Event Date">
-                      <h6 className="card-title" >
-                        Program Date (Auto)
-                        {!programDate && <RequiredAsterisk />}
-                      </h6>
-                      <InputGroup>
-                        <Flatpickr
-                          className="form-control d-block date-buttion-alike"
-                          placeholder="dd M,yyyy"
-                          
-                          disabled
-                          options={{
-                            altInput: true,
-                            altFormat: "F j, Y",
-                            dateFormat: "Y-m-d",
-                          }}
-                          value={programDate ? [programDate] : []}
-                          onChange={(dates) => setProgramDate(dates[0] || null)}
-                        />
-                      </InputGroup>
-                    </Col>
+                    
 
                     <Col md={12} className="mt-3">
                       <h6 className="card-title">
@@ -290,6 +272,68 @@ const SheetUpload = () => {
                         )}
                       </div>
                     </Col>
+
+                    <Col md={4} className="mb-3 mt-3" title="Make sure your data file has a column named Event Date">
+                      <h6 className="card-title" >
+                        Program Date (Auto)
+                        {!programDate && <RequiredAsterisk />}
+                      </h6>
+                      <InputGroup>
+                        <Flatpickr
+                          className="form-control d-block date-buttion-alike"
+                          placeholder="dd M,yyyy"
+                            options={{
+                            altInput: true,
+                            altFormat: "F j, Y",
+                            dateFormat: "Y-m-d",
+                          }}
+                          value={programDate ? [programDate] : []}
+                          onChange={(dates) => setProgramDate(dates[0] || null)}
+                          disabled
+                        />
+                      </InputGroup>
+                    </Col>
+
+                    <Col md={4} className="mt-3" title="Make sure your data file has a column named Program Incharge">
+                          <h6 className="card-title" >
+                        Program Incharge (Auto)
+                        {<RequiredAsterisk />}
+                      </h6>
+                      <div>
+                        <InputGroup>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value="Anushka Dissanayaka"
+                            style={{ height: "40px" }} 
+                            disabled
+                          />
+                        </InputGroup>
+                      </div>
+                    </Col>
+
+                    <Col md={4} className="mt-3" title="Make sure your data file has a column named Event Date">
+                          <h6 className="card-title" >
+                        Included Date Range (Auto)
+                        {<RequiredAsterisk />}
+                      </h6>
+                      <div>
+                        <FormGroup className="mb-0">
+                        <InputGroup>
+                          <Flatpickr
+                            className="form-control d-block date-buttion-alike"
+                            placeholder="yyyy-mm-dd to yyyy-mm-dd"
+                            options={{ mode: "range", dateFormat: "Y-m-d" }}
+                            disabled
+                          />
+                        </InputGroup>
+                      </FormGroup>
+                      </div>
+                    </Col>
+
+
+
+
                   </Row>
                 </Form>
 

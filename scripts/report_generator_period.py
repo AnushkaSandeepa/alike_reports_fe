@@ -64,6 +64,10 @@ def main():
     def avg(lst):
         return round(statistics.fmean(lst), 2) if lst else None
 
+    # overall satisfaction across networking + workshop
+    all_satisfaction = networking_rates + workshop_sat
+    overall_satisfaction = avg(all_satisfaction)
+
     result = {
         "reportType": "period",
         "start_date": start_s,
@@ -74,8 +78,12 @@ def main():
             "total_reports": len(selected),
             "networking_events": sum(1 for r in selected if r.get("program_type")=="networking_events"),
             "workshops": sum(1 for r in selected if r.get("program_type")=="workshop"),
+            "with_satisfaction": len(all_satisfaction), 
         },
         "aggregates": {
+            "overall": {  
+                "avg_satisfaction_percent": overall_satisfaction,
+            },
             "networking_events": {
                 "avg_satisfaction_percent": avg(networking_rates),
             },
