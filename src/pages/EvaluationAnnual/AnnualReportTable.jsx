@@ -1,4 +1,4 @@
-// src/components/filter/EventReportGenerate.jsx
+// src/components/filter/AnnualReportGenerate.jsx
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
 import AnnualReportTableContainer from "./AnnualReports";
