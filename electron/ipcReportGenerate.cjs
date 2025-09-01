@@ -25,7 +25,13 @@ module.exports = function () {
     fs.writeFileSync(lastReportIdPath, JSON.stringify({ lastId: num }), "utf-8");
   }
 
-  ipcMain.handle("generate-report", async (event, { spreadsheetId, spreadsheetPath, programType }) => {
+  ipcMain.handle("generate-report", async (event, {
+    spreadsheetId,
+    spreadsheetPath,
+    programType,
+    evaluationStartDate,
+    evaluationEndDate,          
+  }) => {
     return new Promise(resolve => {
       const pythonPath = process.platform === "win32" ? "python" : "python3";
       const scriptPath = programType !== "networking_events"
@@ -37,10 +43,14 @@ module.exports = function () {
       const reportId = `R${reportNumber.toString().padStart(4, "0")}`;
       saveLastReportId(reportNumber);
 
-      const py = spawn(pythonPath, [scriptPath, spreadsheetPath, spreadsheetId, programType, reportId], { cwd: __dirname });
+      const args = [scriptPath, spreadsheetPath, spreadsheetId, programType, reportId];
+      if (evaluationStartDate && evaluationEndDate) {
+        args.push("--evaluationStart", evaluationStartDate, "--evaluationEnd", evaluationEndDate);
+      }
+
+      const py = spawn(pythonPath, args, { cwd: __dirname });
 
       let dataString = "", errorString = "";
-
       py.stdout.on("data", (data) => dataString += data.toString());
       py.stderr.on("data", (data) => errorString += data.toString());
 
@@ -48,8 +58,8 @@ module.exports = function () {
         if (code !== 0) return resolve({ success: false, error: errorString || `Python exited ${code}` });
 
         try {
-          const cleanDataString = dataString.split("\n").filter(line => line.trim()).pop();
-          const resultJson = JSON.parse(cleanDataString);
+          const clean = dataString.split("\n").filter(l => l.trim()).pop();
+          const resultJson = JSON.parse(clean);
 
           const db = JSON.parse(fs.readFileSync(reportsDbPath, "utf-8")) || [];
           db.push(resultJson);

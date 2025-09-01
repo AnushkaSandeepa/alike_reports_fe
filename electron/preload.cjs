@@ -39,13 +39,22 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
 
   // Event based reports
-  generateReport: async ({ spreadsheetId, spreadsheetPath, programType }) => {
+  generateReport: async ({
+    spreadsheetId,
+    spreadsheetPath,
+    programType,
+    evaluationStartDate,  
+    evaluationEndDate,    
+  }) => {
     return await ipcRenderer.invoke("generate-report", {
       spreadsheetId,
       spreadsheetPath,
-      programType
+      programType,
+      evaluationStartDate,  
+      evaluationEndDate,    
     });
   },
+
   getReports: () => ipcRenderer.invoke("get-reports"),
   deleteReport: (id) => ipcRenderer.invoke("delete-report", id), 
   extractEventDate: (filePath) => ipcRenderer.invoke("extract-event-date", filePath),

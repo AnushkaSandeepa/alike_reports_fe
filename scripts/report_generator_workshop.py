@@ -1,8 +1,7 @@
-import pandas as pd
-import json
-import os
-import sys
+# scripts/report_generator_workshop.py
+import sys, json, os, argparse, datetime as dt
 from pathlib import Path
+import pandas as pd
 import numpy as np
 
 CONFIDENCE_MAP = {
@@ -10,7 +9,7 @@ CONFIDENCE_MAP = {
     "Slightly confident": 1,
     "Moderately confident": 2,
     "Very confident": 3,
-    "Extremely confident": 4
+    "Extremely confident": 4,
 }
 
 AGREEMENT_MAP = {
@@ -19,128 +18,232 @@ AGREEMENT_MAP = {
     "Neither Agree nor Disagree": 3,
     "Disagree": 2,
     "Strongly Disagree": 1,
-    "Not Applicable": 0
+    "Not Applicable": 0,
 }
 
 def safe_float(x):
-    if pd.isna(x):
-        return 0.0
-    if isinstance(x, np.generic):
-        return float(x)
-    return x
+    if pd.isna(x): return 0.0
+    if isinstance(x, np.generic): return float(x)
+    try: return float(x)
+    except Exception: return 0.0
 
-def convert_to_numeric(df, cols, map_type="confidence"):
-    mapping = CONFIDENCE_MAP if map_type == "confidence" else AGREEMENT_MAP
-    for col in cols:
-        if col in df:
-            df[col] = df[col].map(mapping).fillna(df[col])
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-    return df
+def parse_date(s):
+    if s is None or (isinstance(s, float) and pd.isna(s)): return None
+    s = str(s).strip()
+    for fmt in ("%Y-%m-%d","%d/%m/%Y","%m/%d/%Y","%Y/%m/%d","%d-%m-%Y"):
+        try: return dt.datetime.strptime(s, fmt).date()
+        except Exception: pass
+    try: return pd.to_datetime(s).date()
+    except Exception: return None
 
-def get_pre_post_satisfaction_cols(df, marker_col):
-    marker_idx = df.columns.get_loc(marker_col)
-    start_idx = marker_idx + 1
+def find_event_date_series(df):
+    candidates = [
+        "Event Date","Event date","Date of Event","Session Date","Workshop Date"
+    ]
+    for name in df.columns:
+        for cand in candidates:
+            if str(name).strip().lower() == cand.lower():
+                s = df[name]
+                if pd.api.types.is_datetime64_any_dtype(s): return s.dt.date
+                return s.apply(parse_date)
+    return None
 
-    pre_cols = []
-    first_col_words = df.columns[start_idx].split()
-    first_col_base = " ".join(first_col_words[:-2])
+def to_numeric_map(df, cols, which="confidence"):
+    mapping = CONFIDENCE_MAP if which == "confidence" else AGREEMENT_MAP
+    out = df.copy()
+    for c in cols:
+        if c in out:
+            out[c] = out[c].map(mapping).fillna(out[c])
+            out[c] = pd.to_numeric(out[c], errors="coerce")
+    return out
 
-    for i in range(start_idx, len(df.columns)):
-        col_words = df.columns[i].split()
-        col_base = " ".join(col_words[:-2])
-        if i != start_idx and col_base == first_col_base:
-            break
-        pre_cols.append(df.columns[i])
+def infer_pre_post_by_marker(df):
+    """Try to locate a 'before/after' marker column and split questions accordingly."""
+    marker_variants = [
+        "Please mark whether this feedback is for before or after the workshop.",
+        "Please mark whether this feedback is for before or after the session.",
+        "Before/After",
+        "Before or After",
+        "Is this BEFORE or AFTER the workshop?",
+    ]
+    for col in df.columns:
+        for mv in marker_variants:
+            if str(col).strip().lower() == mv.lower():
+                # Assume questions follow in the sequence: all-pre then all-post, with same length
+                start_idx = df.columns.get_loc(col) + 1
+                if start_idx >= len(df.columns): return [], [], []
+                # Try to determine the length of the "pre" block by comparing base labels
+                pre_cols = []
+                first = df.columns[start_idx]
+                base0 = " ".join(str(first).split()[:-2]) or str(first)
+                for i in range(start_idx, len(df.columns)):
+                    name = df.columns[i]
+                    base = " ".join(str(name).split()[:-2]) or str(name)
+                    if i != start_idx and base == base0:
+                        break
+                    pre_cols.append(name)
+                n_pre = len(pre_cols)
+                post_start = start_idx + n_pre
+                post_cols = list(df.columns[post_start: post_start + n_pre])
 
-    n_pre = len(pre_cols)
-    post_start_idx = start_idx + n_pre
-    post_cols = df.columns[post_start_idx : post_start_idx + n_pre]
+                # Satisfaction columns: scan beyond that for agreement-mapped values
+                tail = list(df.columns[post_start + n_pre:])
+                satisfaction_cols = []
+                for c in tail:
+                    s = df[c].dropna().astype(str).str.strip()
+                    if s.isin(AGREEMENT_MAP.keys()).any():
+                        satisfaction_cols.append(c)
+                return pre_cols, post_cols, satisfaction_cols
+    return None  # no marker match
 
-    satis_start_idx = post_start_idx + n_pre
-    satisfaction_cols = [col for col in df.columns[satis_start_idx:] if col != "Additional feedback"]
+def infer_pre_post_by_pattern(df):
+    """Fallback: detect pairs of columns ending with Before/After markers."""
+    pre_tokens  = ["(Before)","- Before","Before the workshop","Before"]
+    post_tokens = ["(After)","- After","After the workshop","After"]
 
+    def norm(s): return str(s).strip().lower()
+
+    # Build base-> (pre_col, post_col)
+    pairs = {}
+    for col in df.columns:
+        label = str(col)
+        l = norm(label)
+        for t in pre_tokens:
+            if l.endswith(t.lower()):
+                base = l[:-len(t)].strip()
+                pairs.setdefault(base, {})["pre"] = col
+        for t in post_tokens:
+            if l.endswith(t.lower()):
+                base = l[:-len(t)].strip()
+                pairs.setdefault(base, {})["post"] = col
+
+    pre_cols, post_cols = [], []
+    for base, d in pairs.items():
+        if "pre" in d and "post" in d:
+            pre_cols.append(d["pre"])
+            post_cols.append(d["post"])
+
+    # Satisfaction columns: anything with AGREEMENT_MAP values
+    satisfaction_cols = []
+    for c in df.columns:
+        s = df[c].dropna().astype(str).str.strip()
+        if s.isin(AGREEMENT_MAP.keys()).any():
+            satisfaction_cols.append(c)
+
+    # Remove any pre/post columns from satisfaction list if they overlap
+    satisfaction_cols = [c for c in satisfaction_cols if c not in pre_cols + post_cols]
     return pre_cols, post_cols, satisfaction_cols
 
-def calculate_workshop_scores(file_path, spreadsheet_id, program_type, report_id):
-    df = pd.read_excel(file_path)
-
-    # Get pre/post/satisfaction columns
-    pre_cols, post_cols, satisfaction_cols = get_pre_post_satisfaction_cols(
-        df, "Please mark whether this feedback is for before or after the workshop."
-    )
-
-    # Calculate satisfaction counts using your preferred method
-    satisfaction_counts = {}
-    for col in satisfaction_cols:
-        col_values = df[col].dropna().astype(str).str.strip()
-        col_counts = col_values.value_counts()
-        for key in AGREEMENT_MAP.keys():
-            satisfaction_counts[key] = satisfaction_counts.get(key, 0) + int(col_counts.get(key, 0))
-
-
-    # Convert numeric
-    df_pre = convert_to_numeric(df, pre_cols, "confidence")
-    df_post = convert_to_numeric(df, post_cols, "confidence")
-    df_satis = convert_to_numeric(df, satisfaction_cols, "agreement")
-
-    # Calculate averages
-    pre_avg = round(safe_float(df_pre[pre_cols].mean().mean() / 4 * 100), 2) if not df_pre.empty else 0.0
-    post_avg = round(safe_float(df_post[post_cols].mean().mean() / 4 * 100), 2) if not df_post.empty else 0.0
-    increase = round(post_avg - pre_avg, 2)
-    satisfaction_rate = round(safe_float(df_satis[satisfaction_cols].mean().mean() / 5 * 100), 2)
-
-    
-    # Additional feedback
-    feedback_list = [fb for fb in df.get("Additional feedback", pd.Series()).dropna().astype(str).str.strip() if len(fb.split()) >= 2]
-
-    # Build result
-    result = {
+def zero_report(file_path, spreadsheet_id, program_type, report_id, eval_start, eval_end):
+    return {
         "reportId": report_id,
         "spreadsheet_id": spreadsheet_id,
         "spreadsheet_name": Path(file_path).stem,
         "program_type": program_type,
         "spreadsheet_path": os.path.abspath(file_path),
         "confidence_data": {
-            "pre_percent": pre_avg,
-            "post_percent": post_avg,
-            "increase_percent": increase,
-            "satisfaction_rate": satisfaction_rate
+            "pre_percent": 0.0,
+            "post_percent": 0.0,
+            "increase_percent": 0.0,
+            "satisfaction_rate": 0.0,
         },
-        "satisfaction_counts": satisfaction_counts,
-        "generated_date": pd.Timestamp.now().strftime("%Y-%m-%d")
+        "satisfaction_counts": {k: 0 for k in AGREEMENT_MAP.keys()},
+        "generated_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
+        "evaluation_start": eval_start,
+        "evaluation_end": eval_end,
     }
 
-    if feedback_list:
-        result["additional_feedback"] = feedback_list
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("spreadsheet_path")
+    p.add_argument("spreadsheet_id")
+    p.add_argument("program_type")
+    p.add_argument("report_id")
+    p.add_argument("--evaluationStart", dest="eval_start")
+    p.add_argument("--evaluationEnd",   dest="eval_end")
+    args = p.parse_args()
 
-    # Save to JSON DB
-    secure_dir = Path.home() / "AppData" / "Roaming" / "hyper-react-js" / "Documents"
-    secure_dir.mkdir(parents=True, exist_ok=True)
-    json_db_path = secure_dir / "confidence_data_db.json"
+    df = pd.read_excel(args.spreadsheet_path)
 
-    try:
-        if json_db_path.exists():
-            with open(json_db_path, "r", encoding="utf-8") as f:
-                db_data = json.load(f)
-                if not isinstance(db_data, list):
-                    db_data = []
-        else:
-            db_data = []
+    # Optional filter by date range
+    start = parse_date(args.eval_start) if args.eval_start else None
+    end   = parse_date(args.eval_end)   if args.eval_end   else None
+    if start or end:
+        ed = find_event_date_series(df)
+        if ed is not None:
+            mask = pd.Series([True]*len(df))
+            if start: mask &= ed.apply(lambda d: d is not None and d >= start)
+            if end:   mask &= ed.apply(lambda d: d is not None and d <= end)
+            df = df[mask].copy()
 
-        db_data.append(result)
+    if df.empty:
+        print(json.dumps(zero_report(args.spreadsheet_path, args.spreadsheet_id,
+                                     args.program_type, args.report_id,
+                                     args.eval_start, args.eval_end),
+                         ensure_ascii=False))
+        return
 
-        with open(json_db_path, "w", encoding="utf-8") as f:
-            json.dump(db_data, f, indent=4, ensure_ascii=False)
+    # Try marker method, else pattern method
+    found = infer_pre_post_by_marker(df)
+    if found is None:
+        pre_cols, post_cols, satisfaction_cols = infer_pre_post_by_pattern(df)
+    else:
+        pre_cols, post_cols, satisfaction_cols = found
 
-        print("✅ Result saved:", result)
-    except Exception as e:
-        print("❌ Error saving JSON:", e)
+    # If we still can't infer anything, return a safe zero report
+    if not pre_cols and not post_cols and not satisfaction_cols:
+        print(json.dumps(zero_report(args.spreadsheet_path, args.spreadsheet_id,
+                                     args.program_type, args.report_id,
+                                     args.eval_start, args.eval_end),
+                         ensure_ascii=False))
+        return
 
-    return result
+    # Satisfaction counts
+    satisfaction_counts = {k:0 for k in AGREEMENT_MAP.keys()}
+    for c in satisfaction_cols:
+        if c not in df: continue
+        s = df[c].dropna().astype(str).str.strip()
+        vc = s.value_counts()
+        for k in AGREEMENT_MAP.keys():
+            satisfaction_counts[k] += int(vc.get(k, 0))
+
+    # Numerics
+    df_pre  = to_numeric_map(df, pre_cols,  "confidence")
+    df_post = to_numeric_map(df, post_cols, "confidence")
+    df_sat  = to_numeric_map(df, satisfaction_cols, "agreement")
+
+    pre_pct  = round(safe_float(df_pre[pre_cols].mean().mean()  / 4 * 100), 2) if pre_cols else 0.0
+    post_pct = round(safe_float(df_post[post_cols].mean().mean() / 4 * 100), 2) if post_cols else 0.0
+    inc_pct  = round(post_pct - pre_pct, 2)
+    sat_pct  = round(safe_float(df_sat[satisfaction_cols].mean().mean() / 5 * 100), 2) if satisfaction_cols else 0.0
+
+    # Additional feedback (2+ words)
+    feedback = []
+    if "Additional feedback" in df.columns:
+        feedback = [fb for fb in df["Additional feedback"].dropna().astype(str).str.strip()
+                    if len(fb.split()) >= 2]
+
+    result = {
+        "reportId": args.report_id,
+        "spreadsheet_id": args.spreadsheet_id,
+        "spreadsheet_name": Path(args.spreadsheet_path).stem,
+        "program_type": args.program_type,
+        "spreadsheet_path": os.path.abspath(args.spreadsheet_path),
+        "confidence_data": {
+            "pre_percent": pre_pct,
+            "post_percent": post_pct,
+            "increase_percent": inc_pct,
+            "satisfaction_rate": sat_pct,
+        },
+        "satisfaction_counts": satisfaction_counts,
+        "generated_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
+        "evaluation_start": args.eval_start,
+        "evaluation_end": args.eval_end,
+    }
+    if feedback: result["additional_feedback"] = feedback
+
+    # IMPORTANT: only print JSON
+    print(json.dumps(result, ensure_ascii=False))
 
 if __name__ == "__main__":
-    file_path = sys.argv[1]
-    spreadsheet_id = sys.argv[2]
-    program_type = sys.argv[3]
-    report_id = sys.argv[4]
-    calculate_workshop_scores(file_path, spreadsheet_id, program_type, report_id)
+    main()

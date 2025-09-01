@@ -15,7 +15,8 @@ import JobListGlobalFilter from "../../components/Common/GlobalSearchFilter";
 import CustomerSearchBox from "@/pages/SheetList/CustomerSearchBox";
 import {  Stack,  } from 'rsuite';
 import Swal from "sweetalert2";
-
+import Flatpickr from "react-flatpickr";
+import "flatpickr/dist/themes/material_blue.css";
 
 // Define a default UI for filtering
 function GlobalFilter({
@@ -117,6 +118,15 @@ const EventReportTableContainer = ({
   const [allSheets, setAllSheets] = useState([]);
   const [loadingSheets, setLoadingSheets] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [dateRange, setDateRange] = useState([]);
+
+  const fmtISO = (d) => {
+    if (!d) return ""; // or return null / a default string
+    if (!(d instanceof Date)) d = new Date(d); // try to convert if it's a string/number
+
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
 
 
   const fetchReports = async () => {
@@ -145,6 +155,7 @@ useEffect(() => {
     fetchSheets();
   }, []);
 
+  console.log("dateRange:", fmtISO(dateRange[0]));
 
   // Filter spreadsheets for the selected program type
   const filteredSheets = programType
@@ -153,46 +164,40 @@ useEffect(() => {
   ;
 
   const handleGenerateReport = async () => {
-  const sheet = filteredSheets.find(s => s.storedAt === spreadsheet);
-  if (!sheet) return;
+    const sheet = filteredSheets.find(s => s.storedAt === spreadsheet);
+    if (!sheet) return;
 
-  const alreadyGenerated = allReports.some(
-    report => report.spreadsheet_id === sheet.fileId
-  );
+    if (!dateRange || dateRange.length !== 2 || !dateRange[0] || !dateRange[1]) {
+      Swal.fire({ icon: "warning", title: "Pick a date range", text: "Select a start and end date." });
+      return;
+    }
+    const evaluationStartDate = fmtISO(dateRange[0]);
+    const evaluationEndDate   = fmtISO(dateRange[1]);
 
-  if (alreadyGenerated) {
-    Swal.fire({
-      icon: "error",
-        title: "Oops!",
-        text: "Report has already been generated for this spreadsheet!",
-      });
+    const alreadyGenerated = allReports.some(r => r.spreadsheet_id === sheet.fileId);
+    if (alreadyGenerated) {
+      Swal.fire({ icon: "error", title: "Oops!", text: "Report has already been generated for this spreadsheet!" });
       return;
     }
 
     try {
-      setIsGenerating(true); // disable button
+      setIsGenerating(true);
       const result = await window.electronAPI.generateReport({
         spreadsheetId: sheet.fileId,
         spreadsheetPath: spreadsheet,
         programType: programType,
+        evaluationStartDate,
+        evaluationEndDate,
       });
 
-      Swal.fire({
-        icon: "success",
-        title: "Success!",
-        text: "Report has been generated successfully.",
-      });
-
+      Swal.fire({ icon: "success", title: "Success!", text: "Report generated." });
       await fetchReports();
       setSpreadsheet("");
+      setDateRange([]);
     } catch (error) {
-      Swal.fire({
-        icon: "error",
-        title: "Error!",
-        text: error.message || "Failed to generate report.",
-      });
+      Swal.fire({ icon: "error", title: "Error!", text: error.message || "Failed to generate report." });
     } finally {
-      setIsGenerating(false); // re-enable button
+      setIsGenerating(false);
     }
   };
 
@@ -229,7 +234,7 @@ useEffect(() => {
           </Col>
 
           {/* Spreadsheet */}
-          <Col md={6}>
+          <Col md={5}>
             <h6>Select Program's Spreadsheet</h6>
             <select
               value={spreadsheet}
@@ -248,8 +253,33 @@ useEffect(() => {
             </select>
           </Col>
 
+          <Col md={4} title="Select the Date range you want to extract from file to generate report.">
+            <h6>Select date range to extract 
+              <Flatpickr
+              className="form-control"
+              placeholder="yyyy-mm-dd to yyyy-mm-dd"
+              style={{ height: "40px" }}
+              options={{
+                mode: "range",
+                dateFormat: "Y-m-d",
+                // keep it open until both dates picked (robust)
+                disableMobile: true,
+              }}
+              onReady={(_d,_s,inst)=>inst.set("closeOnSelect", false)}
+              onOpen={(_d,_s,inst)=>{ if (inst.config.closeOnSelect!==false) inst.set("closeOnSelect", false); }}
+              onClose={(dates,_s,inst)=>{ if (dates.length<2) setTimeout(()=>inst.open(),0); }}
+              onChange={(dates,_s,inst) => {
+                setDateRange(dates);
+                if (dates.length === 2) inst.close();
+              }}
+              value={dateRange}
+            />
+            </h6>
+          </Col>
+
+
           {/* Generate Button */}
-          <Col md="auto" className="d-flex align-items-end">
+          <Col md="auto" className="d-flex align-items-end mt-4">
             <button
               className="btn-alike"
               onClick={handleGenerateReport}
