@@ -258,7 +258,7 @@ useEffect(() => {
           </Col>
 
           <Col md={4} title="Select the Date range you want to extract from file to generate report.">
-            <h6>Select date range to extract 
+            <h6>Select Required Date range to Extract 
               <Flatpickr
               className="form-control"
               placeholder="yyyy-mm-dd to yyyy-mm-dd"

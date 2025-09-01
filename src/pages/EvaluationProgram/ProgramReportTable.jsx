@@ -68,6 +68,16 @@ function EventReportGenerate() {
         { Header: 'Used Spreadsheet Name', accessor: 'spreadsheet_name' },
         { Header: 'Used Sheetsheet ID', accessor: 'spreadsheet_id' },
         { Header: 'Program Type', accessor: 'program_type', width: 200 },
+        {
+          Header: "Evaluated For",
+          id: "evaluation_range",
+          accessor: (row) => {
+            const s = row.evaluation_start || "—";
+            const e = row.evaluation_end || "—";
+            return `${s} to ${e}`;
+          },
+          width: 200,
+        },
         { Header: 'Satisfaction Rate (%)', accessor: 'confidence_data.satisfaction_rate', width: 150 },
         {
             Header: 'View',
