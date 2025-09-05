@@ -32,17 +32,34 @@ function extractEventDate(filePath) {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const jsonData = XLSX.utils.sheet_to_json(sheet, { raw: true });
 
-    const firstRow = jsonData[0];
-    if (firstRow && firstRow["Event Date"] != null) {
-      let dateValue = firstRow["Event Date"];
+    if (!jsonData.length) return null;
 
+    const firstRow = jsonData[0];
+    // Normalise keys
+    const keys = Object.keys(firstRow).reduce((map, key) => {
+      map[key.toLowerCase().trim()] = key;
+      return map;
+    }, {});
+
+    // Possible date columns
+    const candidates = ["event date", "workshop date"];
+
+    // Find the first matching column
+    const foundKey = candidates.find((c) => keys[c]);
+    if (!foundKey) return null;
+
+    let dateValue = firstRow[keys[foundKey]];
+
+    if (dateValue != null) {
       if (typeof dateValue === "number") {
-        dateValue = excelDateToJSDate(dateValue); // convert serial number
+        dateValue = excelDateToJSDate(dateValue); // your helper
       } else {
-        dateValue = new Date(dateValue); // fallback
+        dateValue = new Date(dateValue);
       }
 
-      return dateValue.toISOString().slice(0, 10); // "YYYY-MM-DD"
+      if (!isNaN(dateValue)) {
+        return dateValue.toISOString().slice(0, 10); // "YYYY-MM-DD"
+      }
     }
 
     return null;
@@ -51,6 +68,7 @@ function extractEventDate(filePath) {
     return null;
   }
 }
+
 
 
 

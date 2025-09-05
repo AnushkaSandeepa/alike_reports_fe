@@ -101,7 +101,8 @@ const SheetUpload = () => {
       const res = await window.electronAPI.storeSpreadsheet({
         sourcePath: selectedFilePath,
         programType,
-        programDate: ymdLocal(programDate), // <-- fixed
+        status: "Active",
+        programDate: ymdLocal(programDate), 
       });
 
 
@@ -276,7 +277,7 @@ const SheetUpload = () => {
                     <Row className="mt-3">
                       <Col md={4} className="mb-3 mt-3" title="Make sure your data file has a column named Event Date">
                         <h6 className="card-title" >
-                          Program Started Date (Auto)
+                          Program Date (Auto)
                           {!programDate && <RequiredAsterisk />}
                         </h6>
                         <InputGroup>
@@ -290,7 +291,7 @@ const SheetUpload = () => {
                             }}
                             value={programDate ? [programDate] : []}
                             onChange={(dates) => setProgramDate(dates[0] || null)}
-                            disabled
+                            
                           />
                         </InputGroup>
                       </Col>
@@ -315,7 +316,7 @@ const SheetUpload = () => {
 
                       <Col md={4} className="mt-3" title="Make sure your data file has a column named Event Date">
                             <h6 className="card-title" >
-                          Included Date Range (Auto)
+                          Included Range (Auto)
                           {<RequiredAsterisk />}
                         </h6>
                         <div>
