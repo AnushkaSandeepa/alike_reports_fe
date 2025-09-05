@@ -39,9 +39,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
       programType,
       evaluationStartDate,
       evaluationEndDate,
-    }),
+  }),
   getReports: () => ipcRenderer.invoke("get-reports"),
   deleteReport: (id) => ipcRenderer.invoke("delete-report", id),
+  updateReportStatus: (reportId, status) => ipcRenderer.invoke("update-report-status", { reportId, status }),
 
   // Period-based (unchanged here)
   getPeriodReports: () => ipcRenderer.invoke("get-period-reports"),

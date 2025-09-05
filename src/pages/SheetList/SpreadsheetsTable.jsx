@@ -101,7 +101,8 @@ function EventSheetsTable() {
           const isActive = row.original.status === "Active";
           return (
             <div className="d-flex align-items-center gap-2">
-              <div className="form-check form-switch m-0">
+              {/* If you want to hanlde status by a button, then uncomment this. all functions are impelemted */}
+              {/* <div className="form-check form-switch m-0">
                 <input
                   className="form-check-input"
                   type="checkbox"
@@ -109,12 +110,11 @@ function EventSheetsTable() {
                   checked={isActive}
                   onChange={() => handleToggleStatus(row.index)}
                   style={{
-                    // add a hint of green/red on the thumb/track
                     backgroundColor: isActive ? "#28a745" : "#dc3545",
                     borderColor: isActive ? "#28a745" : "#dc3545",
                   }}
                 />
-              </div>
+              </div> */}
               <span
                 className={
                   "badge " +

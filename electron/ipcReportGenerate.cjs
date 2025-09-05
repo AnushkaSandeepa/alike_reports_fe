@@ -126,6 +126,7 @@ module.exports = function () {
 
           if (parsed && !parsed.reportId) parsed.reportId = reportId;
 
+          parsed.reportStatus = parsed.reportStatus || "Active"; 
           // Only now persist the incremented id
           saveLastReportId(nextNum);
 
@@ -167,6 +168,35 @@ module.exports = function () {
       return { success: true, remaining };
     } catch (err) {
       return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("update-report-status", async (_event, { reportId, status }) => {
+    try {
+      if (!reportId) throw new Error("reportId is required");
+      if (!["Active", "Inactive"].includes(status)) {
+        throw new Error("status must be 'Active' or 'Inactive'");
+      }
+
+      const raw = await fs.promises.readFile(reportsDbPath, "utf-8");
+      const db = JSON.parse(raw || "[]");
+
+      const idx = db.findIndex((r) => r.reportId === reportId);
+      if (idx === -1) {
+        return { success: false, error: `Report ${reportId} not found` };
+      }
+
+      db[idx].reportStatus = status;
+      // optional: audit trail
+      db[idx].statusUpdatedOn = new Date().toISOString();
+
+      const tmp = reportsDbPath + ".tmp";
+      await fs.promises.writeFile(tmp, JSON.stringify(db, null, 2), "utf-8");
+      await fs.promises.rename(tmp, reportsDbPath);
+
+      return { success: true, data: { reportId, reportStatus: status } };
+    } catch (e) {
+      return { success: false, error: e.message };
     }
   });
 };
