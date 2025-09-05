@@ -14,10 +14,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
     }
     return { success: true, filePath: result.filePaths[0] };
   },
-  extractEventDate: (filePath) => ipcRenderer.invoke("extract-event-date", filePath),
+
+  extractSheetMetadata: (filePath) => ipcRenderer.invoke("extract-event-metadata", filePath),
+
   // Store uploaded spreadsheet
-  storeSpreadsheet: ({ sourcePath, programType, programDate }) =>
-    ipcRenderer.invoke("store-spreadsheet", { sourcePath, programType, programDate }),
+  storeSpreadsheet: ({ sourcePath, programType, programDate, personIncharge, dateRange }) =>
+   ipcRenderer.invoke("store-spreadsheet", {
+    sourcePath, programType, programDate, personIncharge, dateRange
+  }),
+
+  updateSpreadsheetStatus: (fileId, status) =>
+    ipcRenderer.invoke("update-spreadsheet-status", { fileId, status }),
+
 
   getUploadedSheets: () => ipcRenderer.invoke("get-uploaded-spreadsheets"),
   openUploadFolder: () => ipcRenderer.send("open-upload-folder"),

@@ -37,6 +37,9 @@ const SheetUpload = () => {
   const [selectedFilePath, setSelectedFilePath] = useState(null);
   const [fileName, setFileName] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [personIncharge, setPersonIncharge] = useState();
+  const [dateRange, setDateRange] = useState([]);
+
 
   const RequiredAsterisk = () => (
     <small className="text-danger ms-1" aria-label="required" style={{ fontSize: 12 }}>
@@ -66,15 +69,26 @@ const SheetUpload = () => {
 
       // Auto-fill program date; backend returns "YYYY-MM-DD"
       try {
-        const res = await window.electronAPI.extractEventDate(path);
-        console.log("Extracted event date:", res);
-        if (res?.success && res?.eventDate) {
-          const [y, m, d] = res.eventDate.split("-").map(Number);
-          setProgramDate(new Date(y, m-1, d)); 
+        const res = await window.electronAPI.extractSheetMetadata(path);
+        console.log("Extracted metadata:", res);
+        if (res?.success) {
+          // Program Date
+          if (res.eventDate) {
+            const [y, m, d] = res.eventDate.split("-").map(Number);
+            setProgramDate(new Date(y, m - 1, d));
+          }
+          // Person Incharge
+          setPersonIncharge(res.incharge);
+          // Date Range
+          if (res.range) {
+            setDateRange([res.range.start, res.range.end]);
+          }
         }
       } catch (e) {
-        console.error("extractEventDate failed:", e);
+        console.error("extractSheetMetadata failed:", e);
       }
+
+
     } else {
       setStatus("File selection cancelled.");
     }
@@ -101,8 +115,12 @@ const SheetUpload = () => {
       const res = await window.electronAPI.storeSpreadsheet({
         sourcePath: selectedFilePath,
         programType,
-        programDate: ymdLocal(programDate), 
-      });
+        programDate: ymdLocal(programDate),
+        personIncharge,                       
+        dateRange: Array.isArray(dateRange)  
+        ? { start: dateRange[0] || null, end: dateRange[1] || null }
+        : { start: null, end: null },
+        });
 
 
       if (res?.success) {
@@ -302,13 +320,14 @@ const SheetUpload = () => {
                         </h6>
                         <div>
                           <InputGroup>
-                            <input
+                            <Input
                               type="text"
                               className="form-control"
-                              value="Anushka Dissanayaka"
-                              style={{ height: "40px" }} 
+                              value={personIncharge}
+                              style={{ height: "40px" }}
                               disabled
                             />
+
                           </InputGroup>
                         </div>
                       </Col>
@@ -325,7 +344,8 @@ const SheetUpload = () => {
                               className="form-control d-block date-buttion-alike"
                               placeholder="yyyy-mm-dd to yyyy-mm-dd"
                               options={{ mode: "range", dateFormat: "Y-m-d" }}
-                              disabled
+                              value={dateRange}
+                              
                             />
                           </InputGroup>
                         </FormGroup>

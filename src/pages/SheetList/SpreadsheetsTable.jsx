@@ -5,6 +5,7 @@ import { FaTrash, FaEye } from "react-icons/fa";
 
 function EventSheetsTable() {
   const [sheetData, setSheetData] = useState([]);
+  
   console.log("Sheet Data:", sheetData);
   // Fetch metadata on mount
   useEffect(() => {
@@ -17,8 +18,8 @@ function EventSheetsTable() {
           fileId: item.fileId,
           name: item.storedAt.split(/[\\/]/).pop(),
           sheet_type: item.programType,
-          eventDate: item.programDate.slice(0, 10),
-          status: "Active", // You can add real status logic later
+          programDate: item.programDate.slice(0, 10),
+          status: item.filesStatus,
           fullPath: item.storedAt
         }));
         setSheetData(formatted);
@@ -29,27 +30,47 @@ function EventSheetsTable() {
     fetchData();
   }, []);
 
-const handleDelete = async (rowIndex) => {
-  const fileIdToDelete = sheetData[rowIndex].fileId;
-  const res = await window.electronAPI.deleteSpreadsheet(fileIdToDelete);
-  if (res.success) {
-    const updated = [...sheetData];
-    updated.splice(rowIndex, 1);
-    setSheetData(updated);
-  } else {
-    alert("Failed to delete: " + (res.error || "Unknown error"));
-  }
-};
+  const handleDelete = async (rowIndex) => {
+    const fileIdToDelete = sheetData[rowIndex].fileId;
+    const res = await window.electronAPI.deleteSpreadsheet(fileIdToDelete);
+    if (res.success) {
+      const updated = [...sheetData];
+      updated.splice(rowIndex, 1);
+      setSheetData(updated);
+    } else {
+      alert("Failed to delete: " + (res.error || "Unknown error"));
+    }
+  };
 
+  const handleToggleStatus = async (rowIndex) => {
+    const row = sheetData[rowIndex];
+    const prevStatus = row.status;
+    const nextStatus = prevStatus === "Active" ? "Inactive" : "Active";
+
+    // Optimistic update
+    setSheetData((old) =>
+      old.map((r, i) => (i === rowIndex ? { ...r, status: nextStatus } : r))
+    );
+
+    // OPTIONAL: persist to disk (enable step 2 and 3)
+    try {
+      const res = await window.electronAPI.updateSpreadsheetStatus(
+        row.fileId,
+        nextStatus
+      );
+      if (!res?.success) throw new Error(res?.error || "Update failed");
+    } catch (e) {
+      // Revert on failure
+      setSheetData((old) =>
+        old.map((r, i) => (i === rowIndex ? { ...r, status: prevStatus } : r))
+      );
+      alert("Failed to update status: " + e.message);
+    }
+  };
 
 
   const columns = useMemo(
     () => [
-      {
-        Header: "Row ID",
-        accessor: "row_id",
-        width: 100
-      },
       {
         Header: "File ID",
         accessor: "fileId",
@@ -66,16 +87,47 @@ const handleDelete = async (rowIndex) => {
         width: 200
       },
       {
-        Header: "Uploaded Date",
-        accessor: "eventDate",
+        Header: "Promgram Date",
+        accessor: "programDate",
         minWidth: 150,
         maxWidth: 250
       },
       {
         Header: "Status",
         accessor: "status",
-        minWidth: 150,
-        maxWidth: 250
+        minWidth: 180,
+        maxWidth: 260,
+        Cell: ({ row }) => {
+          const isActive = row.original.status === "Active";
+          return (
+            <div className="d-flex align-items-center gap-2">
+              <div className="form-check form-switch m-0">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  checked={isActive}
+                  onChange={() => handleToggleStatus(row.index)}
+                  style={{
+                    // add a hint of green/red on the thumb/track
+                    backgroundColor: isActive ? "#28a745" : "#dc3545",
+                    borderColor: isActive ? "#28a745" : "#dc3545",
+                  }}
+                />
+              </div>
+              <span
+                className={
+                  "badge " +
+                  (isActive
+                    ? "bg-success-subtle text-success"
+                    : "bg-danger-subtle text-danger")
+                }
+              >
+                {isActive ? "Active" : "Inactive"}
+              </span>
+            </div>
+          );
+        },
       },
       {
         Header: "Delete",
