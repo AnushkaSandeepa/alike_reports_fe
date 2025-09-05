@@ -135,6 +135,7 @@ module.exports = (ipcMain) => {
         storedAt: destFilePath,
         programType,
         programDate,
+        filesStatus: "Active",
         savedOn: new Date().toISOString(),
       };
 

@@ -101,7 +101,6 @@ const SheetUpload = () => {
       const res = await window.electronAPI.storeSpreadsheet({
         sourcePath: selectedFilePath,
         programType,
-        status: "Active",
         programDate: ymdLocal(programDate), 
       });
 
