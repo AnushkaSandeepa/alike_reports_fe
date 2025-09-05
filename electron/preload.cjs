@@ -14,7 +14,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     }
     return { success: true, filePath: result.filePaths[0] };
   },
-
+  extractEventDate: (filePath) => ipcRenderer.invoke("extract-event-date", filePath),
   // Store uploaded spreadsheet
   storeSpreadsheet: ({ sourcePath, programType, programDate }) =>
     ipcRenderer.invoke("store-spreadsheet", { sourcePath, programType, programDate }),
