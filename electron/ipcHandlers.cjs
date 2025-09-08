@@ -147,11 +147,20 @@ module.exports = (ipcMain) => {
           throw new Error(`Unsupported file type "${ext}".`);
         }
 
+        // Base data dir (for DB + id file)
         const documentsDir = path.join(app.getPath("userData"), "Documents");
         await fs.promises.mkdir(documentsDir, { recursive: true });
 
-        const spreadsheetDir = path.join(app.getPath("userData"), "UploadFile");
+        // Upload base + funding subfolder
+        const uploadsBase = path.join(app.getPath("userData"), "UploadFile");
+        await fs.promises.mkdir(uploadsBase, { recursive: true });
+
+        // Put DOC files in /doc, DOH files in /doh, others in /general
+        const fb = String(fundingBody || "").toLowerCase();
+        const subfolder = fb === "doc" ? "doc" : fb === "doh" ? "doh" : "general";
+        const spreadsheetDir = path.join(uploadsBase, subfolder);
         await fs.promises.mkdir(spreadsheetDir, { recursive: true });
+
 
         const id = getNextId(path.join(documentsDir, "last_id.txt"));
         const originalName = path.basename(resolvedSource, ext);
