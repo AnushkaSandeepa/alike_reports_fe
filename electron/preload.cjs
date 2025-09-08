@@ -18,9 +18,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   extractSheetMetadata: (filePath) => ipcRenderer.invoke("extract-event-metadata", filePath),
 
   // Store uploaded spreadsheet
-  storeSpreadsheet: ({ sourcePath, programType, programDate, personIncharge, dateRange }) =>
+  storeSpreadsheet: ({ sourcePath, programType, programDate, facilitator, dateRange }) =>
    ipcRenderer.invoke("store-spreadsheet", {
-    sourcePath, programType, programDate, personIncharge, dateRange
+    sourcePath, programType, programDate, facilitator, dateRange
   }),
 
   updateSpreadsheetStatus: (fileId, status) =>

@@ -36,7 +36,7 @@ function extractSheetMetadata(filePath) {
         success: false,
         error: "Sheet is empty",
         eventDate: null,
-        incharge: "Anushka Sandeepa",
+        facilitator: "Anushka Sandeepa",
         range: { start: null, end: null },
       };
     }
@@ -51,27 +51,27 @@ function extractSheetMetadata(filePath) {
     }, {});
 
     // --- Person Incharge (allow common misspellings/variants) ---
-    const inchargeCandidates = [
-      "persionincharge", // matches your sheets spelling
+    const facilitatorCandidates = [
+      "persionincharge", 
       "personincharge",
       "programmeincharge",
       "programincharge",
-      "incharge",
-      "coordinator",
       "facilitator",
+      "coordinator",
+      "incharge",
       "lead",
     ];
-    let incharge = null;
-    for (const c of inchargeCandidates) {
+    let facilitator = null;
+    for (const c of facilitatorCandidates) {
       if (keys[c]) {
         const v = jsonData[0][keys[c]];
         if (v != null && String(v).trim()) {
-          incharge = String(v).trim();
+          facilitator = String(v).trim();
           break;
         }
       }
     }
-    if (!incharge) incharge = "Anushka Sandeepa";
+    if (!facilitator) facilitator = "Anushka Sandeepa";
 
     // --- Dates (Event Date / Workshop Date) ---
     const dateCandidates = ["eventdate", "workshopdate"];
@@ -102,14 +102,14 @@ function extractSheetMetadata(filePath) {
       range = { start: iso(oldest), end: iso(latest) };
     }
 
-    return { success: true, eventDate, incharge, range };
+    return { success: true, eventDate, facilitator, range };
   } catch (err) {
     console.error("extractSheetMetadata failed:", err);
     return {
       success: false,
       error: String(err?.message || err),
       eventDate: null,
-      incharge: "Anushka Sandeepa",
+      facilitator: "Anushka Sandeepa",
       range: { start: null, end: null },
     };
   }
@@ -132,7 +132,7 @@ module.exports = (ipcMain) => {
     sourcePath,
     programType,
     programDate,
-    personIncharge,
+    facilitator,
     dateRange,         
   }) => {
     try {
@@ -177,7 +177,7 @@ module.exports = (ipcMain) => {
 
       // ---- Enrich metadata ----
       // Normalise inputs
-      let incharge = (personIncharge && String(personIncharge).trim()) || null;
+      let facilitator = (facilitator && String(facilitator).trim()) || null;
 
       // dateRange can be array or object
       let rangeObj = { start: null, end: null };
@@ -188,9 +188,9 @@ module.exports = (ipcMain) => {
       }
 
       // If incomplete, extract from the file
-      if (!incharge || !rangeObj.start || !rangeObj.end) {
+      if (!facilitator || !rangeObj.start || !rangeObj.end) {
         const extracted = extractSheetMetadata(resolvedSource); // your helper above
-        if (!incharge) incharge = extracted?.incharge || "Anushka Sandeepa";
+        if (!facilitator) facilitator = extracted?.facilitator || "Anushka Sandeepa";
         if (!rangeObj.start || !rangeObj.end) {
           rangeObj = {
             start: extracted?.range?.start || rangeObj.start || null,
@@ -213,7 +213,7 @@ module.exports = (ipcMain) => {
         filesStatus: "Active",
         savedOn: new Date().toISOString(),
         // NEW FIELDS:
-        personIncharge: incharge || "Anushka Sandeepa",
+        facilitator: facilitator || "Anushka Sandeepa",
         includedRange: { start: rangeObj.start, end: rangeObj.end },
         schemaVersion: 1,
       };

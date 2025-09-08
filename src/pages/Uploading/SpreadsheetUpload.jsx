@@ -26,18 +26,27 @@ const PROGRAM_TYPES = [
   { value: "workshop", label: "Workshop" },
 ];
 
+const FUNDINGBODY = [
+  { value: "", label: "Select Funding Body"},
+  { value: "doc", label: "Department of Communities (DOC)" },
+  { value: "doh", label: "Department of Health (DOH)" },
+];
+
+
+
 const SheetUpload = () => {
   useEffect(() => {
     document.title = "Spreadsheet Upload | Alike Reports";
   }, []);
 
   const [programType, setProgramType] = useState("");
-  const [programDate, setProgramDate] = useState(null); // JS Date
+  const [fundingBody, setFundingBody] = useState("");
+  const [programDate, setProgramDate] = useState(null); 
   const [status, setStatus] = useState("");
   const [selectedFilePath, setSelectedFilePath] = useState(null);
   const [fileName, setFileName] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [personIncharge, setPersonIncharge] = useState();
+  const [facilitator, setFacilitator] = useState();
   const [dateRange, setDateRange] = useState([]);
 
 
@@ -78,7 +87,7 @@ const SheetUpload = () => {
             setProgramDate(new Date(y, m - 1, d));
           }
           // Person Incharge
-          setPersonIncharge(res.incharge);
+          setFacilitator(res.facilitator);
           // Date Range
           if (res.range) {
             setDateRange([res.range.start, res.range.end]);
@@ -116,7 +125,7 @@ const SheetUpload = () => {
         sourcePath: selectedFilePath,
         programType,
         programDate: ymdLocal(programDate),
-        personIncharge,                       
+        facilitator,                       
         dateRange: Array.isArray(dateRange)  
         ? { start: dateRange[0] || null, end: dateRange[1] || null }
         : { start: null, end: null },
@@ -189,6 +198,29 @@ const SheetUpload = () => {
                           </option>
                         ))}
                       </select>
+                    </Col>
+
+                    <Col md={4} className="mb-3" title="Make sure your data file has a column named Funding Body">
+                      <h6 className="card-title" >
+                      Funding Body (Auto)
+                      {<RequiredAsterisk />}
+                      </h6>
+                      <div>
+                        <select
+                          className="form-select"
+                          value={fundingBody}
+                          style={{ height: "40px" }}
+                          onChange={(e) => setFundingBody(e.target.value)}
+
+                        >
+                        {FUNDINGBODY.map((pt) => (
+                          <option key={pt.value} value={pt.value}>
+                            {pt.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      </div>
                     </Col>
 
                     
@@ -313,9 +345,9 @@ const SheetUpload = () => {
                         </InputGroup>
                       </Col>
 
-                      <Col md={4} className="mt-3" title="Make sure your data file has a column named Program Incharge">
+                      <Col md={4} className="mt-3" title="Make sure your data file has a column named Facilitator">
                             <h6 className="card-title" >
-                          Program Incharge (Auto)
+                          Facilitator (Auto)
                           {<RequiredAsterisk />}
                         </h6>
                         <div>
@@ -323,7 +355,7 @@ const SheetUpload = () => {
                             <Input
                               type="text"
                               className="form-control"
-                              value={personIncharge}
+                              value={facilitator}
                               style={{ height: "40px" }}
                               disabled
                             />
