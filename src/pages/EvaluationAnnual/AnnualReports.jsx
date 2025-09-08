@@ -114,7 +114,13 @@ const AnnualReportTableContainer = ({
   const showError = (msg) => Swal.fire({ icon: "error", title: "Error", text: msg || "Something went wrong." });
   const showSuccess = (msg) => Swal.fire({ icon: "success", title: "Success", text: msg || "Done." });
 
-  const fetchPeriodReports = async () => {
+
+  const fmtISO = (d) => {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+
+  const fetchPeriodReports = React.useCallback(async () => {
     try {
       setLoading(true);
       const res = await window.electronAPI.getPeriodReports();
@@ -126,21 +132,17 @@ const AnnualReportTableContainer = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fmtISO = (d) => {
-    const pad = (n) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  };
-
-  // ---------- Effects: initial load & subscribe to main events ----------
-  useEffect(() => { fetchPeriodReports(); }, []);
+  useEffect(() => { fetchPeriodReports(); }, [fetchPeriodReports]); // ONE initial load
 
   useEffect(() => {
-    const offUpdated = window.electronAPI.on?.("period-updated", () => fetchPeriodReports()) || (() => {});
+    const offUpdated  = window.electronAPI.on?.("period-updated",  () => fetchPeriodReports()) || (() => {});
     const offProgress = window.electronAPI.on?.("period-progress", (p) => setProgress(p)) || (() => {});
     return () => { offUpdated(); offProgress(); };
-  }, []);
+  }, [fetchPeriodReports]);
+
+
 
   // ---------- Actions ----------
   const handleGenerate = async () => {

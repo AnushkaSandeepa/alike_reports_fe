@@ -48,4 +48,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getPeriodReports: () => ipcRenderer.invoke("get-period-reports"),
   generatePeriodReport: ({ start, end }) => ipcRenderer.invoke("report_generator_period", { start, end }),
   deletePeriodReport: (id) => ipcRenderer.invoke("delete-period-report", id),
+
+  on: (channel, handler) => {
+    if (!["period-updated", "period-progress"].includes(channel) || typeof handler !== "function") {
+      return () => {};
+    }
+    const wrapped = (_evt, payload) => { try { handler(payload); } catch {} };
+    ipcRenderer.on(channel, wrapped);
+    return () => ipcRenderer.removeListener(channel, wrapped); // <-- unsubscribe
+  },
+  
 });
