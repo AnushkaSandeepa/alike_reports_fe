@@ -58,7 +58,9 @@ const EventReportTableContainer = ({
 
 }) => {
   const [allReports, setAllReports] = useState([]);
-  const tableData = React.useMemo(() => allReports, [allReports]);
+  //const tableData = React.useMemo(() => allReports, [allReports]);
+  const tableData = React.useMemo(() => data || [], [data]);
+
 
   const {
     getTableProps,
@@ -128,17 +130,17 @@ const EventReportTableContainer = ({
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   };
 
+  useEffect(() => {
+    const off = window.electronAPI.on?.("report-updated", ({ reportId, reportStatus }) => {
+      setReports(prev => prev.map(r => r.reportId === reportId ? { ...r, reportStatus } : r));
+    }) || (() => {});
+    return () => off();
+  }, []);
 
   const fetchReports = async () => {
     const result = await window.electronAPI.getReports();
     setAllReports(result || []);
   };
-
-  // Call fetchReports on mount
-  useEffect(() => {
-    fetchReports();
-  }, []);
-
 
 useEffect(() => {
     const fetchSheets = async () => {

@@ -171,7 +171,7 @@ module.exports = function () {
     }
   });
 
-  ipcMain.handle("update-report-status", async (_event, { reportId, status }) => {
+  ipcMain.handle("update-report-status", async (event, { reportId, status }) => {
     try {
       if (!reportId) throw new Error("reportId is required");
       if (!["Active", "Inactive"].includes(status)) {
@@ -193,6 +193,9 @@ module.exports = function () {
       const tmp = reportsDbPath + ".tmp";
       await fs.promises.writeFile(tmp, JSON.stringify(db, null, 2), "utf-8");
       await fs.promises.rename(tmp, reportsDbPath);
+      try {
+        event.sender.send("report-updated", { reportId, reportStatus: status });
+      } catch {}
 
       return { success: true, data: { reportId, reportStatus: status } };
     } catch (e) {

@@ -61,18 +61,17 @@ function EventReportGenerate() {
       }
   }, []);
 
-  const handleToggleStatus = useCallback(async (reportId, currentStatus) => {
-    const desired = currentStatus === "Active" ? "Inactive" : "Active";
+const handleToggleStatus = useCallback(async (reportId, currentStatus) => {
+  const desired = currentStatus === "Active" ? "Inactive" : "Active";
 
-    // optimistic update by reportId
-    setReports(prev =>
-      prev.map(r => (r.reportId === reportId ? { ...r, reportStatus: desired } : r))
-    );
+  // optimistic update
+  setReports(prev =>
+    prev.map(r => (r.reportId === reportId ? { ...r, reportStatus: desired } : r))
+  );
 
     try {
       const res = await window.electronAPI.updateReportStatus(reportId, desired);
       if (!res?.success) throw new Error(res?.error || "Update failed");
-      await loadReports();
     } catch (e) {
       // revert on failure
       setReports(prev =>
@@ -192,7 +191,7 @@ function EventReportGenerate() {
           <p>Loading reports...</p>
         ) : (
           <EventReportTableContainer
-            key={reports?.length || 0}
+            // key={reports?.length || 0}
             columns={columns}
             data={reports}
             isGlobalFilter={true}
