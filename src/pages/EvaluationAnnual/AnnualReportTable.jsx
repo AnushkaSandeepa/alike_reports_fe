@@ -51,8 +51,7 @@ function EventReportGenerate() {
       const res = await window.electronAPI.deletePeriodReport(periodReportId);
       if (!res?.success) throw new Error(res?.error || "Delete failed.");
       Swal.fire({ icon: "success", title: "Deleted", timer: 1200, showConfirmButton: false });
-      // The "period-updated" event from main will also trigger a refresh,
-      // but we can optimistically update the list too:
+      
       setRows((prev) => prev.filter((r) => r.periodReportId !== periodReportId));
     } catch (e) {
       console.error(e);

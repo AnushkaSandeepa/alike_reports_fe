@@ -101,7 +101,12 @@ function EventReportGenerate() {
         },
         width: 200,
       },
-      { Header: 'Satisfaction Rate (%)', accessor: 'confidence_data.satisfaction_rate', width: 150 },
+      {
+        Header: 'Satisfaction Rate (%)',
+        accessor: (row) => row?.confidence_data?.satisfaction_rate ?? "—",
+        width: 150,
+      } ,
+
       {
         Header: 'Status',
         accessor: 'reportStatus',

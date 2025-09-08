@@ -33,12 +33,18 @@ def main():
         rows = json.load(f) or []
 
     # filter by event_date (fallback generated_date)
+    # filter by event_date (fallback generated_date)
     selected = []
     for r in rows:
+        # skip reports that are not active
+        if r.get("reportStatus") and r["reportStatus"] != "Active":
+            continue
+
         ds = r.get("event_date") or r.get("generated_date")
         d  = parse_date(ds) if ds else None
         if d and start <= d <= end:
             selected.append(r)
+
 
     # Aggregate
     networking_rates = []
