@@ -28,7 +28,7 @@ const PROGRAM_TYPES = [
 
 const SheetUpload = () => {
   useEffect(() => {
-    document.title = "Spreadsheet Upload | Alike Reports";
+    document.title = "Spreadsheet Upload | Alike WA";
   }, []);
 
   const [programType, setProgramType] = useState("");

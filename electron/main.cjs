@@ -8,6 +8,9 @@ const isDev = process.env.NODE_ENV === 'development';
 require('./ipcHandlers.cjs')(ipcMain);
 require('./ipcReportGenerate.cjs')(ipcMain);
 require('./ipcPeriodReports.cjs')(ipcMain);
+require("./ipcAdditionalEvaluations.cjs")(ipcMain);
+
+
 
 function createWindow() {
   const win = new BrowserWindow({
