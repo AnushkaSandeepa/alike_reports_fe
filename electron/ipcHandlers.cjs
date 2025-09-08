@@ -128,7 +128,8 @@ module.exports = (ipcMain) => {
         sourcePath,
         programType,
         programDate,
-        personIncharge, // <-- match renderer
+        personIncharge,
+        fundingBody,
         dateRange,
       }
     ) => {
@@ -210,6 +211,7 @@ module.exports = (ipcMain) => {
           filesStatus: "Active",
           savedOn: new Date().toISOString(),
           facilitator: personInchargeVal,
+          fundingBody,
           includedRange: { start: rangeObj.start, end: rangeObj.end },
           schemaVersion: 1,
         };

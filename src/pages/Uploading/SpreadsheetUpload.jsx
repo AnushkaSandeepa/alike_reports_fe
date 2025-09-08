@@ -103,12 +103,14 @@ const SheetUpload = () => {
     }
   };
 
+  // inside SheetUpload.jsx
+
   const handleUpload = async () => {
-    if (!programType || !programDate || !selectedFilePath) {
+    if (!programType || !programDate || !selectedFilePath || !fundingBody) {
       MySwal.fire({
         icon: "warning",
         title: "Missing fields",
-        text: "Please select type, date, and file.",
+        text: "Please select type, funding body, date, and file.",
       });
       return;
     }
@@ -117,20 +119,19 @@ const SheetUpload = () => {
       setIsUploading(true);
       setStatus("Uploading...");
 
-      // helper to format a Date into YYYY-MM-DD (local calendar day)
       const ymdLocal = (d) =>
         [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-");
 
       const res = await window.electronAPI.storeSpreadsheet({
         sourcePath: selectedFilePath,
         programType,
+        fundingBody,                         // <-- send it
         programDate: ymdLocal(programDate),
-        facilitator,                       
-        dateRange: Array.isArray(dateRange)  
-        ? { start: dateRange[0] || null, end: dateRange[1] || null }
-        : { start: null, end: null },
-        });
-
+        personIncharge: facilitator || "",   // <-- map to expected key
+        dateRange: Array.isArray(dateRange)
+          ? { start: dateRange[0] || null, end: dateRange[1] || null }
+          : { start: null, end: null },
+      });
 
       if (res?.success) {
         MySwal.fire({
@@ -142,30 +143,22 @@ const SheetUpload = () => {
           showConfirmButton: false,
         });
 
-        // Reset all form states
         setProgramType("");
+        setFundingBody("");                 // <-- reset
         setProgramDate(null);
         setSelectedFilePath(null);
         setFileName(null);
         setStatus("");
       } else {
-        MySwal.fire({
-          icon: "error",
-          title: "Upload Failed",
-          text: res?.error || "Unknown error",
-        });
+        MySwal.fire({ icon: "error", title: "Upload Failed", text: res?.error || "Unknown error" });
       }
     } catch (err) {
-      console.error(err);
-      MySwal.fire({
-        icon: "error",
-        title: "Upload Failed",
-        text: String(err),
-      });
+      MySwal.fire({ icon: "error", title: "Upload Failed", text: String(err) });
     } finally {
       setIsUploading(false);
     }
   };
+
 
   return (
     <div className="page-content">
