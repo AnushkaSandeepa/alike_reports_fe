@@ -1,4 +1,4 @@
-// electron/ipReportGenerate.cjs
+// electron/ipcReportGenerate.cjs   <-- (double-check the filename is 'ipcReportGenerate.cjs')
 const { app, ipcMain } = require("electron");
 const fs = require("fs");
 const path = require("path");
@@ -8,6 +8,11 @@ module.exports = function () {
   const uploadsDir = path.join(app.getPath("userData"), "Documents");
   const reportsDbPath = path.join(uploadsDir, "confidence_data_db.json");
   const lastReportIdPath = path.join(uploadsDir, "last_report_id.json");
+
+  // ✅ NEW: resolve scripts root for dev vs packaged builds
+  const scriptsRoot = app.isPackaged
+    ? path.join(process.resourcesPath, "scripts")
+    : path.join(__dirname, "..", "scripts");
 
   if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
   if (!fs.existsSync(reportsDbPath)) fs.writeFileSync(reportsDbPath, "[]", "utf-8");
@@ -21,19 +26,11 @@ module.exports = function () {
   };
   const saveLastReportId = (n) => fs.writeFileSync(lastReportIdPath, JSON.stringify({ lastId: n }), "utf-8");
 
-  // Prefer py -3 on Windows, otherwise python/python3; never run with a shell.
   function getPythonCmdAndArgs(scriptPath, argv) {
     if (process.platform === "win32") {
-      return [
-        "py",
-        ["-3", scriptPath, ...argv],
-      ];
+      return ["py", ["-3", scriptPath, ...argv]];
     }
-    // macOS/Linux
-    return [
-      "python3",
-      [scriptPath, ...argv],
-    ];
+    return ["python3", [scriptPath, ...argv]];
   }
 
   ipcMain.handle("generate-report", async (_event, {
@@ -44,24 +41,18 @@ module.exports = function () {
     evaluationEndDate,
   }) => {
     return new Promise((resolve) => {
-      const scriptPath = programType !== "networking_events"
-        ? path.join(__dirname, "..", "scripts", "report_generator_workshop.py")
-        : path.join(__dirname, "..", "scripts", "report_generator_networking.py");
+      // ✅ CHANGED: build script path off scriptsRoot so it works in prod
+      const scriptName =
+        programType !== "networking_events"
+          ? "report_generator_workshop.py"
+          : "report_generator_networking.py";
 
-      // Prepare a candidate reportId, but do NOT persist until Python succeeds.
+      const scriptPath = path.join(scriptsRoot, scriptName);
+
       const nextNum = getLastReportId() + 1;
       const reportId = `R${String(nextNum).padStart(4, "0")}`;
 
-      // REQUIRED positional order for your script:
-      // spreadsheet_path spreadsheet_id program_type report_id
-      const positional = [
-        spreadsheetPath,
-        spreadsheetId,
-        programType,
-        reportId,
-      ];
-
-      // Optional date-range flags
+      const positional = [spreadsheetPath, spreadsheetId, programType, reportId];
       if (evaluationStartDate && evaluationEndDate) {
         positional.push("--evaluationStart", evaluationStartDate, "--evaluationEnd", evaluationEndDate);
       }
@@ -69,9 +60,10 @@ module.exports = function () {
       const [cmd, args] = getPythonCmdAndArgs(scriptPath, positional);
 
       const child = spawn(cmd, args, {
-        cwd: __dirname,
+        // ✅ CHANGED: run from scriptsRoot so any relative imports/files work after packaging
+        cwd: scriptsRoot,
         windowsHide: true,
-        shell: false, // IMPORTANT
+        shell: false,
       });
 
       let outBuf = "";
@@ -81,19 +73,17 @@ module.exports = function () {
       child.stderr.on("data", (d) => (errBuf += d.toString()));
 
       child.on("error", (err) => {
-        // If 'py' is not found on Windows, retry with 'python'
         if (process.platform === "win32" && cmd === "py") {
+          // fallback to 'python' if 'py' isn't available
           const fallbackChild = spawn("python", [scriptPath, ...positional], {
-            cwd: __dirname,
+            cwd: scriptsRoot,            // ✅ keep same cwd
             windowsHide: true,
             shell: false,
           });
           let fOut = "", fErr = "";
           fallbackChild.stdout.on("data", (d) => (fOut += d.toString()));
           fallbackChild.stderr.on("data", (d) => (fErr += d.toString()));
-          fallbackChild.on("close", (code) => {
-            handleClose(code, fOut, fErr);
-          });
+          fallbackChild.on("close", (code) => handleClose(code, fOut, fErr));
         } else {
           resolve({ success: false, error: err.message || "Failed to start Python" });
         }
@@ -107,7 +97,6 @@ module.exports = function () {
         }
 
         try {
-          // Parse the last JSON-looking line
           const lines = stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
           if (!lines.length) throw new Error("No output from Python");
           let parsed = null;
@@ -119,18 +108,15 @@ module.exports = function () {
           }
           if (!parsed) parsed = JSON.parse(lines[lines.length - 1]);
 
-          // If Python explicitly signals failure (e.g., empty range)
           if (parsed && parsed.success === false) {
             return resolve({ success: false, error: parsed.error || "Report generation failed." });
           }
 
           if (parsed && !parsed.reportId) parsed.reportId = reportId;
+          parsed.reportStatus = parsed.reportStatus || "Active";
 
-          parsed.reportStatus = parsed.reportStatus || "Active"; 
-          // Only now persist the incremented id
           saveLastReportId(nextNum);
 
-          // Save to DB
           const db = JSON.parse(fs.readFileSync(reportsDbPath, "utf-8") || "[]");
           db.push(parsed);
           fs.writeFileSync(reportsDbPath, JSON.stringify(db, null, 2), "utf-8");
@@ -147,16 +133,13 @@ module.exports = function () {
     try {
       const raw = await fs.promises.readFile(reportsDbPath, "utf-8");
       return JSON.parse(raw || "[]");
-    } catch {
-      return [];
-    }
+    } catch { return []; }
   });
 
   ipcMain.handle("delete-report", async (_event, reportId) => {
     try {
       const raw = await fs.promises.readFile(reportsDbPath, "utf-8");
       const db = JSON.parse(raw || "[]");
-
       const exists = db.some((r) => r.reportId === reportId);
       if (!exists) return { success: false, error: `Report ${reportId} not found` };
 
@@ -174,28 +157,20 @@ module.exports = function () {
   ipcMain.handle("update-report-status", async (event, { reportId, status }) => {
     try {
       if (!reportId) throw new Error("reportId is required");
-      if (!["Active", "Inactive"].includes(status)) {
-        throw new Error("status must be 'Active' or 'Inactive'");
-      }
+      if (!["Active", "Inactive"].includes(status)) throw new Error("status must be 'Active' or 'Inactive'");
 
       const raw = await fs.promises.readFile(reportsDbPath, "utf-8");
       const db = JSON.parse(raw || "[]");
-
       const idx = db.findIndex((r) => r.reportId === reportId);
-      if (idx === -1) {
-        return { success: false, error: `Report ${reportId} not found` };
-      }
+      if (idx === -1) return { success: false, error: `Report ${reportId} not found` };
 
       db[idx].reportStatus = status;
-      // optional: audit trail
       db[idx].statusUpdatedOn = new Date().toISOString();
 
       const tmp = reportsDbPath + ".tmp";
       await fs.promises.writeFile(tmp, JSON.stringify(db, null, 2), "utf-8");
       await fs.promises.rename(tmp, reportsDbPath);
-      try {
-        event.sender.send("report-updated", { reportId, reportStatus: status });
-      } catch {}
+      try { event.sender.send("report-updated", { reportId, reportStatus: status }); } catch {}
 
       return { success: true, data: { reportId, reportStatus: status } };
     } catch (e) {

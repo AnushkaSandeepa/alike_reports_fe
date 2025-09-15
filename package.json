@@ -8,12 +8,15 @@
     "dev:ui": "vite --host",
     "dev:electron": "cross-env NODE_ENV=development wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .",
     "dev": "concurrently -k \"npm run dev:ui\" \"npm run dev:electron\"",
+    "clean": "rimraf dist dist_electron",
     "build:ui": "vite build",
-    "build:electron": "electron-builder --config electron-builder.yml",
-    "build": "npm run build:ui && npm run build:electron",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview",
-    "format": "prettier --write src/**/*.{ts,tsx}"
+    "dist:win": "npm run build:ui && electron-builder -w --publish=never",
+    "dist:mac": "npm run build:ui && electron-builder -m --publish=never",
+    "dist:linux": "npm run build:ui && electron-builder -l --publish=never",
+    "build": "npm run build:ui && electron-builder --publish=never",
+    "dist:win:demo": "cross-env DEMO_MODE=1 npm run dist:win",
+    "dist:mac:demo": "cross-env DEMO_MODE=1 npm run dist:mac",
+    "dist:linux:demo": "DEMO_MODE=1 npm run dist:linux"
   },
   "dependencies": {
     "@fullcalendar/bootstrap": "^6.1.8",
@@ -95,9 +98,9 @@
     "@eslint/create-config": "^0.4.6",
     "@types/sortablejs": "^1.15.4",
     "@vitejs/plugin-react": "^4.0.3",
-    "concurrently": "^9.2.0",
+    "concurrently": "^9.2.1",
     "cross-env": "^10.0.0",
-    "electron": "^37.2.5",
+    "electron": "^37.5.0",
     "electron-builder": "^26.0.12",
     "eslint": "^8.45.0",
     "eslint-config-prettier": "^8.8.0",
@@ -112,7 +115,8 @@
     "eslint-plugin-react-refresh": "^0.4.3",
     "less": "^4.2.0",
     "prettier": "^3.0.1",
-    "vite": "^7.0.6",
-    "wait-on": "^8.0.4"
+    "rimraf": "^6.0.1",
+    "vite": "^7.1.5",
+    "wait-on": "^8.0.5"
   }
 }

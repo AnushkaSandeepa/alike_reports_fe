@@ -22,6 +22,11 @@ module.exports = function () {
     await fs.promises.rename(tmp, p);
   };
 
+  // 🟢 NEW: scripts root resolves correctly in dev vs packaged
+  const scriptsRoot = app.isPackaged
+    ? path.join(process.resourcesPath, "scripts")
+    : path.join(__dirname, "..", "scripts");
+
   const getPythonCmd = () => {
     if (process.platform === "win32") return { cmd: "py", args: ["-3"] };
     return { cmd: "python3", args: [] };
@@ -34,8 +39,8 @@ module.exports = function () {
   };
 
   const resolveScript = () => {
-    const base = app.isPackaged ? process.resourcesPath : path.join(__dirname, "..");
-    return path.join(base, "scripts", "report_generator_period.py");
+    // 🟢 CHANGED: always build from scriptsRoot
+    return path.join(scriptsRoot, "report_generator_period.py");
   };
 
   // --- Generate a period report (aggregated annual/period output) ---
@@ -53,31 +58,32 @@ module.exports = function () {
     try { event.sender.send("period-progress", { id: periodReportId, stage: "starting", percent: 5 }); } catch {}
 
     return new Promise((resolve) => {
-      const child = spawn(cmd, childArgs, {
-        cwd: app.isPackaged ? process.resourcesPath : path.join(__dirname, ".."),
-        shell: process.platform === "win32",
+      const spawnOpts = {
+        // 🟢 CHANGED: run in the scripts folder so relative imports/files work after packaging
+        cwd: scriptsRoot,
         windowsHide: true,
+        shell: false,                  // 🟢 safer & consistent; we'll manually fall back if 'py' isn't found
         detached: process.platform !== "win32",
-      });
+      };
 
       let outBuf = "", errBuf = "";
       const TIMEOUT_MS = 2 * 60 * 1000;
-      const to = setTimeout(() => {
-        try { process.platform !== "win32" ? process.kill(-child.pid, "SIGTERM") : child.kill("SIGTERM"); } catch {}
-        resolve({ success: false, error: "Period report timed out" });
-      }, TIMEOUT_MS);
 
-      child.stdout.on("data", (d) => { outBuf += d.toString(); });
-      child.stderr.on("data", (d) => { errBuf += d.toString(); });
+      const killChildTree = (child) => {
+        try {
+          if (process.platform !== "win32") process.kill(-child.pid, "SIGTERM");
+          else child.kill("SIGTERM");
+        } catch {}
+      };
 
-      child.on("close", async (code) => {
+      const handleClose = async (code, stdout, stderr) => {
         clearTimeout(to);
-        if (code !== 0) return resolve({ success: false, error: errBuf.trim() || `Python exited ${code}` });
+        if (code !== 0) return resolve({ success: false, error: (stderr || `Python exited ${code}`).trim() });
 
         // parse delimited JSON
         let parsed;
         try {
-          const m = outBuf.match(/===RESULT===\s*([\s\S]*?)\s*===END===/);
+          const m = stdout.match(/===RESULT===\s*([\s\S]*?)\s*===END===/);
           if (!m) throw new Error("No JSON block found");
           parsed = JSON.parse(m[1].trim());
         } catch (e) {
@@ -98,7 +104,34 @@ module.exports = function () {
         } catch (e) {
           resolve({ success: false, error: `DB write failed: ${e.message}` });
         }
+      };
+
+      const to = setTimeout(() => {
+        killChildTree(child);
+        resolve({ success: false, error: "Period report timed out" });
+      }, TIMEOUT_MS);
+
+      // start with preferred command
+      let child = spawn(cmd, childArgs, spawnOpts);
+
+      child.stdout.on("data", (d) => { outBuf += d.toString(); });
+      child.stderr.on("data", (d) => { errBuf += d.toString(); });
+
+      // 🟢 Windows fallback if 'py' is missing; try 'python'
+      child.on("error", (err) => {
+        if (process.platform === "win32" && cmd === "py") {
+          outBuf = ""; errBuf = "";
+          child = spawn("python", [scriptPath, start, end, confidenceDbPath], spawnOpts);
+          child.stdout.on("data", (d) => { outBuf += d.toString(); });
+          child.stderr.on("data", (d) => { errBuf += d.toString(); });
+          child.on("close", (code) => handleClose(code, outBuf, errBuf));
+        } else {
+          clearTimeout(to);
+          resolve({ success: false, error: err.message || "Failed to start Python" });
+        }
       });
+
+      child.on("close", (code) => handleClose(code, outBuf, errBuf));
     });
   });
 

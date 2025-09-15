@@ -1,23 +1,35 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
-const path = require('path');
+// electron/main.cjs
+const { app, BrowserWindow, ipcMain } = require("electron");
+const path = require("path");
+const fs = require("fs");
 
-const isDev = process.env.NODE_ENV === 'development';
+// Use app.isPackaged instead of NODE_ENV checks (more reliable in builds)
+const isDev = !app.isPackaged;
 
+// Register IPC modules (unchanged)
+require("./ipcHandlers.cjs")(ipcMain);
+require("./ipcReportGenerate.cjs")(ipcMain);
+require("./ipcPeriodReports.cjs")(ipcMain);
 
-// Import all IPC handlers
-require('./ipcHandlers.cjs')(ipcMain);
-require('./ipcReportGenerate.cjs')(ipcMain);
-require('./ipcPeriodReports.cjs')(ipcMain);
-require("./ipcAdditionalEvaluations.cjs")(ipcMain);
-
-
+function getIndexHtmlPath() {
+  // Support both build layouts:
+  const candidates = [
+    path.join(__dirname, "../dist/index.html"),
+    path.join(__dirname, "../dist/renderer/index.html"),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  throw new Error(
+    "Renderer build not found. Did you run `npm run build:renderer`?"
+  );
+}
 
 function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
     webPreferences: {
-      
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
@@ -25,23 +37,38 @@ function createWindow() {
   });
 
   if (isDev) {
-    win.loadURL('http://localhost:5173');
+    const devUrl = process.env.VITE_DEV_SERVER_URL || "http://localhost:5173";
+    win.loadURL(devUrl);
     win.webContents.openDevTools();
   } else {
-    win.loadFile(path.join(__dirname, '../dist/index.html'));
+    win.loadFile(getIndexHtmlPath());
+    // Optional: hide menu in packaged builds
+    // win.removeMenu();
   }
 }
 
-app.whenReady().then(() => {
-  createWindow();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    const [win] = BrowserWindow.getAllWindows();
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
   });
-});
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+  app.whenReady().then(() => {
+    // Windows notifications & jump list identity
+    try { app.setAppUserModelId("com.alike.reports"); } catch {}
+    createWindow();
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  });
 
-
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") app.quit();
+  });
+}

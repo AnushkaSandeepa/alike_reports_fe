@@ -1,21 +1,44 @@
-appId: alike.org.alike.alike_reports
-productName: Alike Reports
+appId: com.alike.reports
+productName: Alike Reports (Sample)
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
 directories:
-  output: dist_electron
+  output: dist
+  buildResources: build
+
 files:
-  - dist/**
-  - electron/main.js
-  - electron/preload.js
-publish:
-  provider: github
-  owner: AnushkaSandeepa
-  repo: alike_reports_fe
+  - "electron/**"
+  - "dist/renderer/**"     # Vite renderer output
+  - "!node_modules/*/{test,__tests__}/**"
+  - "!**/*.map"
+
+npmRebuild: false
+
+asar: true
+
+extraResources:
+  - from: scripts           # your Python or helper scripts
+    to: scripts
+    filter:
+      - "**/*"
+
 win:
   target:
     - nsis
+  # For a no-installer “portable” build, add: - portable
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+
 mac:
   target:
     - dmg
+  category: public.app-category.productivity
+
 linux:
   target:
     - AppImage
+    - deb
+  category: Utility
