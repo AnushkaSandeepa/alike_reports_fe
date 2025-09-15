@@ -1,7 +1,7 @@
 import { PageLoader } from '@/components';
 import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
-import bgVideo from '../assets/images/File/bg-video.mp4'; // Ensure this path is correct
+import bgVideo from '../assets/images/File/background-bg.jpg'; // Ensure this path is correct
 
 const DefaultLayout = () => {
 	return (
