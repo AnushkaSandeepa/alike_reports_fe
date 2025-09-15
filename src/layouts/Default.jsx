@@ -1,13 +1,12 @@
 import { PageLoader } from '@/components';
 import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
-import bgVideo from '../assets/images/File/background-bg.jpg'; // Ensure this path is correct
+import bgImage from '../assets/images/File/background-bg.jpg'; 
 
 const DefaultLayout = () => {
 	return (
 		<Suspense fallback={<PageLoader />}>
-			<div style={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
-				{/* Background Video */}
+			{/* <div style={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
 				<video
 					autoPlay
 					loop
@@ -28,11 +27,27 @@ const DefaultLayout = () => {
 					Your browser does not support the video tag.
 				</video>
 
-				{/* Page Content */}
 				<div style={{ position: 'relative', zIndex: 1 }}>
 					<Outlet />
 				</div>
-			</div>
+			</div> */}
+
+			<div
+				style={{
+					position: 'relative',
+					minHeight: '100vh',
+					overflow: 'hidden',
+    				backgroundImage: `linear-gradient(rgba(255, 255, 255, 0.4), rgba(15, 15, 15, 0.4)), url(${bgImage})`,
+					backgroundSize: 'cover',
+					backgroundPosition: 'center',
+					backgroundRepeat: 'no-repeat',
+					//opacity: 0.6, 
+				}}
+				>
+				<div style={{ position: 'relative', zIndex: 1, paddingTop: '6%' }}>
+					<Outlet />
+				</div>
+				</div>
 		</Suspense>
 	);
 };
