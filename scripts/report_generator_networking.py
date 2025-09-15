@@ -2,25 +2,37 @@
 import pandas as pd
 import json
 import os
-import sys
 from pathlib import Path
 import argparse
 import datetime as dt
 
-AGREEMENT_MAP = {
-    "Strongly Agree": 5,
-    "Agree": 4,
-    "Neither Agree nor Disagree": 3,
-    "Disagree": 2,
-    "Strongly Disagree": 1,
-    "Not Applicable": 0,
+# Labels we recognize (no numeric mapping)
+SAT_LABELS_DISPLAY = [
+    "Strongly Agree",
+    "Agree",
+    "Neither Agree nor Disagree",
+    "Disagree",
+    "Strongly Disagree",
+    "Not Applicable",
+]
+# Case-insensitive lookup (with a couple synonyms for N/A)
+SAT_LABELS_CI = {
+    "strongly agree": "Strongly Agree",
+    "agree": "Agree",
+    "neither agree nor disagree": "Neither Agree nor Disagree",
+    "disagree": "Disagree",
+    "strongly disagree": "Strongly Disagree",
+    "not applicable": "Not Applicable",
+    "n/a": "Not Applicable",
+    "na": "Not Applicable",
 }
 
-def safe_float(x):
-    try:
-        return float(x) if pd.notna(x) else 0.0
-    except Exception:
-        return 0.0
+def canonical_label(v: object):
+    """Return a canonical satisfaction label or None if not recognized."""
+    if v is None:
+        return None
+    s = str(v).strip().lower()
+    return SAT_LABELS_CI.get(s)
 
 def parse_date(s):
     if s is None or (isinstance(s, float) and pd.isna(s)):
@@ -36,7 +48,7 @@ def parse_date(s):
     except Exception:
         return None
 
-def find_event_date_series(df):
+def find_event_date_series(df: pd.DataFrame):
     candidates = [
         "Event Date", "Event date", "Date of Event",
         "Session Date", "Workshop Date", "Date", "Timestamp"
@@ -51,25 +63,24 @@ def find_event_date_series(df):
 
 def calculate_satisfaction_scores(file_path, spreadsheet_id, program_type, report_id,
                                   evaluation_start=None, evaluation_end=None):
-    df = pd.read_excel(file_path)
-    # normalize strings so value matching works
-    df = df.applymap(lambda x: str(x).strip() if pd.notna(x) else "")
+    # Read Excel with native types for dates; we'll string-normalize later where needed
+    df_raw = pd.read_excel(file_path)
 
-    # optional range filter
+    # Optional range filter by event date
     start = parse_date(evaluation_start) if evaluation_start else None
     end   = parse_date(evaluation_end) if evaluation_end else None
 
-    event_dates = find_event_date_series(df)
+    event_dates = find_event_date_series(df_raw)
     if (start or end) and event_dates is not None:
-        mask = pd.Series([True] * len(df))
+        mask = pd.Series([True] * len(df_raw))
         if start:
             mask &= event_dates.apply(lambda d: d is not None and d >= start)
         if end:
             mask &= event_dates.apply(lambda d: d is not None and d <= end)
-        df = df[mask].copy()
+        df_raw = df_raw[mask].copy()
 
-    # if nothing left after filtering => tell Electron not to persist
-    if df.empty:
+    # If nothing left after filtering
+    if df_raw.empty:
         print(json.dumps({
             "success": False,
             "error": "No rows found within the selected date range.",
@@ -84,14 +95,18 @@ def calculate_satisfaction_scores(file_path, spreadsheet_id, program_type, repor
         }, ensure_ascii=False))
         return
 
-    # find first block of satisfaction columns (columns that contain AGREEMENT_MAP values)
-    first_col_idx = next(
-        (i for i, col in enumerate(df.columns)
-         if df[col].isin(AGREEMENT_MAP.keys()).any()), None
-    )
+    # Work on a string-normalized copy for satisfaction detection
+    df = df_raw.applymap(lambda x: str(x).strip() if pd.notna(x) else "")
 
+    # Find the first column that contains any recognized satisfaction label
+    def col_is_satisfaction(cname: str) -> bool:
+        col = df[cname]
+        if col.empty:
+            return False
+        return col.map(canonical_label).notna().any()
+
+    first_col_idx = next((i for i, c in enumerate(df.columns) if col_is_satisfaction(c)), None)
     if first_col_idx is None:
-        # no agreement columns at all – also treat as error (consistent UX)
         print(json.dumps({
             "success": False,
             "error": "No satisfaction response columns detected in this file.",
@@ -106,22 +121,30 @@ def calculate_satisfaction_scores(file_path, spreadsheet_id, program_type, repor
         }, ensure_ascii=False))
         return
 
-    satisfaction_cols = [
-        col for col in df.columns[first_col_idx:]
-        if df[col].isin(AGREEMENT_MAP.keys()).any()
+    # All satisfaction columns from that point on (only those that contain labels)
+    satisfaction_cols = [c for c in df.columns[first_col_idx:] if col_is_satisfaction(c)]
+
+    # Aggregate counts across all satisfaction columns (case-insensitive, canonicalized)
+    satisfaction_counts = {k: 0 for k in SAT_LABELS_DISPLAY}
+    for c in satisfaction_cols:
+        vc = df[c].map(canonical_label).value_counts()
+        for label, count in vc.items():
+            if label in satisfaction_counts:
+                satisfaction_counts[label] += int(count)
+
+    # Satisfaction = (Agree + Strongly Agree) / (all valid responses excl. "Not Applicable")
+    valid_labels = [
+        "Strongly Agree",
+        "Agree",
+        "Neither Agree nor Disagree",
+        "Disagree",
+        "Strongly Disagree",
     ]
+    numerator = satisfaction_counts["Strongly Agree"] + satisfaction_counts["Agree"]
+    denominator = sum(satisfaction_counts[l] for l in valid_labels)
+    satisfaction_rate = round((numerator / denominator) * 100, 2) if denominator else 0.0
 
-    # counts
-    satisfaction_counts = {}
-    for col in satisfaction_cols:
-        col_counts = df[col].value_counts()
-        for k in AGREEMENT_MAP.keys():
-            satisfaction_counts[k] = satisfaction_counts.get(k, 0) + int(col_counts.get(k, 0))
-
-    # average satisfaction %
-    numeric_df = df[satisfaction_cols].applymap(lambda x: AGREEMENT_MAP.get(x, 0))
-    satisfaction_rate = round(safe_float(numeric_df.mean().mean()) / 5 * 100, 2)
-
+    # Build result JSON
     result = {
         "success": True,
         "reportId": report_id,
@@ -130,17 +153,18 @@ def calculate_satisfaction_scores(file_path, spreadsheet_id, program_type, repor
         "program_type": program_type,
         "spreadsheet_path": os.path.abspath(file_path),
         "confidence_data": {"satisfaction_rate": satisfaction_rate},
-        "avg_satisfaction_percent": satisfaction_rate,
+        "avg_satisfaction_percent": satisfaction_rate,  # kept for UI compatibility
         "satisfaction_counts": satisfaction_counts,
         "generated_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
         "evaluation_start": evaluation_start,
         "evaluation_end": evaluation_end,
     }
 
-    # optional: extra comments (2+ words)
-    if "Additional feedback" in df.columns:
+    # Optional: collect "Additional feedback" (case-insensitive match, 2+ words)
+    feedback_col = next((c for c in df.columns if c.strip().lower() == "additional feedback"), None)
+    if feedback_col:
         feedback_list = [
-            fb for fb in df["Additional feedback"].dropna().astype(str).str.strip()
+            fb for fb in df[feedback_col].dropna().astype(str).str.strip()
             if len(fb.split()) >= 2
         ]
         if feedback_list:
@@ -152,7 +176,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("spreadsheet_path")
     parser.add_argument("spreadsheet_id")
-    parser.add_argument("program_type")  # keep required; Electron always passes it
+    parser.add_argument("program_type")  # Electron passes this
     parser.add_argument("report_id")
     parser.add_argument("--evaluationStart", dest="eval_start")
     parser.add_argument("--evaluationEnd", dest="eval_end")

@@ -303,6 +303,68 @@ const SheetUpload = () => {
                           </div>
                         )}
 
+                        <Row className="mt-3">
+                          <Col md={4} className="mb-3 mt-3" title="Make sure your data file has a column named Event Date">
+                            <h6 className="card-title" >
+                              Program Date (Auto)
+                              {!programDate && <RequiredAsterisk />}
+                            </h6>
+                            <InputGroup>
+                              <Flatpickr
+                                className="form-control d-block date-buttion-alike"
+                                placeholder="dd M,yyyy"
+                                  options={{
+                                  altInput: true,
+                                  altFormat: "F j, Y",
+                                  dateFormat: "Y-m-d",
+                                }}
+                                value={programDate ? [programDate] : []}
+                                onChange={(dates) => setProgramDate(dates[0] || null)}
+                                
+                              />
+                            </InputGroup>
+                          </Col>
+
+                          <Col md={4} className="mt-3" title="Make sure your data file has a column named Facilitator">
+                                <h6 className="card-title" >
+                              Facilitator (Auto)
+                              {<RequiredAsterisk />}
+                            </h6>
+                            <div>
+                              <InputGroup>
+                                <Input
+                                  type="text"
+                                  className="form-control"
+                                  value={facilitator}
+                                  style={{ height: "40px" }}
+                                  disabled
+                                />
+
+                              </InputGroup>
+                            </div>
+                          </Col>
+
+                          <Col md={4} className="mt-3" title="Make sure your data file has a column named Event Date">
+                                <h6 className="card-title" >
+                              Included Range (Auto)
+                              {<RequiredAsterisk />}
+                            </h6>
+                            <div>
+                              <FormGroup className="mb-0">
+                              <InputGroup>
+                                <Flatpickr
+                                  className="form-control d-block date-buttion-alike"
+                                  placeholder="yyyy-mm-dd to yyyy-mm-dd"
+                                  options={{ mode: "range", dateFormat: "Y-m-d" }}
+                                  value={dateRange}
+                                  
+                                />
+                              </InputGroup>
+                            </FormGroup>
+                            </div>
+                          </Col>
+                        </Row>
+
                         {selectedFilePath && (
                           <button
                             type="button"
@@ -316,67 +378,7 @@ const SheetUpload = () => {
                       </div>
                     </Col>
 
-                    <Row className="mt-3">
-                      <Col md={4} className="mb-3 mt-3" title="Make sure your data file has a column named Event Date">
-                        <h6 className="card-title" >
-                          Program Date (Auto)
-                          {!programDate && <RequiredAsterisk />}
-                        </h6>
-                        <InputGroup>
-                          <Flatpickr
-                            className="form-control d-block date-buttion-alike"
-                            placeholder="dd M,yyyy"
-                              options={{
-                              altInput: true,
-                              altFormat: "F j, Y",
-                              dateFormat: "Y-m-d",
-                            }}
-                            value={programDate ? [programDate] : []}
-                            onChange={(dates) => setProgramDate(dates[0] || null)}
-                            
-                          />
-                        </InputGroup>
-                      </Col>
-
-                      <Col md={4} className="mt-3" title="Make sure your data file has a column named Facilitator">
-                            <h6 className="card-title" >
-                          Facilitator (Auto)
-                          {<RequiredAsterisk />}
-                        </h6>
-                        <div>
-                          <InputGroup>
-                            <Input
-                              type="text"
-                              className="form-control"
-                              value={facilitator}
-                              style={{ height: "40px" }}
-                              disabled
-                            />
-
-                          </InputGroup>
-                        </div>
-                      </Col>
-
-                      <Col md={4} className="mt-3" title="Make sure your data file has a column named Event Date">
-                            <h6 className="card-title" >
-                          Included Range (Auto)
-                          {<RequiredAsterisk />}
-                        </h6>
-                        <div>
-                          <FormGroup className="mb-0">
-                          <InputGroup>
-                            <Flatpickr
-                              className="form-control d-block date-buttion-alike"
-                              placeholder="yyyy-mm-dd to yyyy-mm-dd"
-                              options={{ mode: "range", dateFormat: "Y-m-d" }}
-                              value={dateRange}
-                              
-                            />
-                          </InputGroup>
-                        </FormGroup>
-                        </div>
-                      </Col>
-                    </Row>
+                    
 
 
 

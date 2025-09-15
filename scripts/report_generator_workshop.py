@@ -12,14 +12,15 @@ CONFIDENCE_MAP = {
     "Extremely confident": 4,
 }
 
-AGREEMENT_MAP = {
-    "Strongly Agree": 5,
-    "Agree": 4,
-    "Neither Agree nor Disagree": 3,
-    "Disagree": 2,
-    "Strongly Disagree": 1,
-    "Not Applicable": 0,
-}
+# Only used for label detection / counts (not for averaging)
+AGREEMENT_LABELS = [
+    "Strongly Agree",
+    "Agree",
+    "Neither Agree nor Disagree",
+    "Disagree",
+    "Strongly Disagree",
+    "Not Applicable",
+]
 
 def safe_float(x):
     if pd.isna(x): return 0.0
@@ -49,10 +50,10 @@ def find_event_date_series(df):
     return None
 
 def to_numeric_map(df, cols, which="confidence"):
-    mapping = CONFIDENCE_MAP if which == "confidence" else AGREEMENT_MAP
+    mapping = CONFIDENCE_MAP if which == "confidence" else None
     out = df.copy()
     for c in cols:
-        if c in out:
+        if c in out and mapping is not None:
             out[c] = out[c].map(mapping).fillna(out[c])
             out[c] = pd.to_numeric(out[c], errors="coerce")
     return out
@@ -87,7 +88,7 @@ def infer_pre_post_by_marker(df):
                 satisfaction_cols = []
                 for c in tail:
                     s = df[c].dropna().astype(str).str.strip()
-                    if s.isin(AGREEMENT_MAP.keys()).any():
+                    if s.isin(AGREEMENT_LABELS).any():
                         satisfaction_cols.append(c)
                 return pre_cols, post_cols, satisfaction_cols
     return None
@@ -119,7 +120,7 @@ def infer_pre_post_by_pattern(df):
     satisfaction_cols = []
     for c in df.columns:
         s = df[c].dropna().astype(str).str.strip()
-        if s.isin(AGREEMENT_MAP.keys()).any():
+        if s.isin(AGREEMENT_LABELS).any():
             satisfaction_cols.append(c)
     satisfaction_cols = [c for c in satisfaction_cols if c not in pre_cols + post_cols]
     return pre_cols, post_cols, satisfaction_cols
@@ -171,35 +172,48 @@ def main():
     # If we still can't infer the key columns, treat that as a failure
     if not pre_cols and not post_cols and not satisfaction_cols:
         print(json.dumps({
-            "success": False,
-            "error": "Could not infer pre/post/satisfaction columns for this sheet.",
-            "reportId": args.report_id,
-            "spreadsheet_id": args.spreadsheet_id,
-            "spreadsheet_name": Path(args.spreadsheet_path).stem,
-            "program_type": args.program_type,
-            "spreadsheet_path": os.path.abspath(args.spreadsheet_path),
-            "generated_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
-            "evaluation_start": args.eval_start,
-            "evaluation_end": args.eval_end,
+                "success": False,
+                "error": "Could not infer pre/post/satisfaction columns for this sheet.",
+                "reportId": args.report_id,
+                "spreadsheet_id": args.spreadsheet_id,
+                "spreadsheet_name": Path(args.spreadsheet_path).stem,
+                "program_type": args.program_type,
+                "spreadsheet_path": os.path.abspath(args.spreadsheet_path),
+                "generated_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
+                "evaluation_start": args.eval_start,
+                "evaluation_end": args.eval_end,
         }, ensure_ascii=False))
         return
 
-    satisfaction_counts = {k:0 for k in AGREEMENT_MAP.keys()}
+    # ---------- Satisfaction counts (string-based, no numeric mapping) ----------
+    satisfaction_counts = {k: 0 for k in AGREEMENT_LABELS}
     for c in satisfaction_cols:
         if c not in df: continue
         s = df[c].dropna().astype(str).str.strip()
         vc = s.value_counts()
-        for k in AGREEMENT_MAP.keys():
+        for k in satisfaction_counts:
             satisfaction_counts[k] += int(vc.get(k, 0))
 
+    valid_labels = [
+        "Strongly Agree",
+        "Agree",
+        "Neither Agree nor Disagree",
+        "Disagree",
+        "Strongly Disagree",
+    ]
+    numerator = satisfaction_counts["Strongly Agree"] + satisfaction_counts["Agree"]
+    denominator = sum(satisfaction_counts[l] for l in valid_labels)
+    sat_pct = round((numerator / denominator) * 100, 2) if denominator else 0.0
+    # ---------------------------------------------------------------------------
+
+    # ---------- Confidence (pre/post) still uses numeric mapping ----------
     df_pre  = to_numeric_map(df, pre_cols,  "confidence")
     df_post = to_numeric_map(df, post_cols, "confidence")
-    df_sat  = to_numeric_map(df, satisfaction_cols, "agreement")
 
     pre_pct  = round(safe_float(df_pre[pre_cols].mean().mean()  / 4 * 100), 2) if pre_cols else 0.0
     post_pct = round(safe_float(df_post[post_cols].mean().mean() / 4 * 100), 2) if post_cols else 0.0
     inc_pct  = round(post_pct - pre_pct, 2)
-    sat_pct  = round(safe_float(df_sat[satisfaction_cols].mean().mean() / 5 * 100), 2) if satisfaction_cols else 0.0
+    # ---------------------------------------------------------------------
 
     feedback = []
     if "Additional feedback" in df.columns:
