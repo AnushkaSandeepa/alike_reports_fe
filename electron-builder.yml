@@ -1,5 +1,5 @@
 appId: com.alike.reports
-productName: Alike Reports (Sample)
+productName: Alike Reports betaV
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 
 directories:
@@ -21,7 +21,7 @@ extraResources:
     to: scripts
     filter:
       - "**/*"
-      
+
   - from: seeds/website_downloads_db.json
     to: seeds/website_downloads_db.json
 
