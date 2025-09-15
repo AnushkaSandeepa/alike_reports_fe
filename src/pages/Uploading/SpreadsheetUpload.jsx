@@ -26,20 +26,29 @@ const PROGRAM_TYPES = [
   { value: "workshop", label: "Workshop" },
 ];
 
+const FUNDINGBODY = [
+  { value: "", label: "Select Funding Body"},
+  { value: "doc", label: "Department of Communities (DOC)" },
+  { value: "doh", label: "Department of Health (DOH)" },
+];
+
+
+
 const SheetUpload = () => {
   useEffect(() => {
     document.title = "Spreadsheet Upload | Alike WA";
   }, []);
 
   const [programType, setProgramType] = useState("");
-  const [programDate, setProgramDate] = useState(null); // JS Date
+  const [fundingBody, setFundingBody] = useState("");
+  const [programDate, setProgramDate] = useState(null); 
   const [status, setStatus] = useState("");
   const [selectedFilePath, setSelectedFilePath] = useState(null);
   const [fileName, setFileName] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [personIncharge, setPersonIncharge] = useState();
+  const [facilitator, setFacilitator] = useState();
   const [dateRange, setDateRange] = useState([]);
-
+  console.log("facilitator", facilitator);
 
   const RequiredAsterisk = () => (
     <small className="text-danger ms-1" aria-label="required" style={{ fontSize: 12 }}>
@@ -78,7 +87,7 @@ const SheetUpload = () => {
             setProgramDate(new Date(y, m - 1, d));
           }
           // Person Incharge
-          setPersonIncharge(res.incharge);
+          setFacilitator(res.facilitator);
           // Date Range
           if (res.range) {
             setDateRange([res.range.start, res.range.end]);
@@ -94,12 +103,14 @@ const SheetUpload = () => {
     }
   };
 
+  // inside SheetUpload.jsx
+
   const handleUpload = async () => {
-    if (!programType || !programDate || !selectedFilePath) {
+    if (!programType || !programDate || !selectedFilePath || !fundingBody) {
       MySwal.fire({
         icon: "warning",
         title: "Missing fields",
-        text: "Please select type, date, and file.",
+        text: "Please select type, funding body, date, and file.",
       });
       return;
     }
@@ -108,20 +119,19 @@ const SheetUpload = () => {
       setIsUploading(true);
       setStatus("Uploading...");
 
-      // helper to format a Date into YYYY-MM-DD (local calendar day)
       const ymdLocal = (d) =>
         [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-");
 
       const res = await window.electronAPI.storeSpreadsheet({
         sourcePath: selectedFilePath,
         programType,
+        fundingBody,                         // <-- send it
         programDate: ymdLocal(programDate),
-        personIncharge,                       
-        dateRange: Array.isArray(dateRange)  
-        ? { start: dateRange[0] || null, end: dateRange[1] || null }
-        : { start: null, end: null },
-        });
-
+        personIncharge: facilitator || "",   // <-- map to expected key
+        dateRange: Array.isArray(dateRange)
+          ? { start: dateRange[0] || null, end: dateRange[1] || null }
+          : { start: null, end: null },
+      });
 
       if (res?.success) {
         MySwal.fire({
@@ -133,30 +143,22 @@ const SheetUpload = () => {
           showConfirmButton: false,
         });
 
-        // Reset all form states
         setProgramType("");
+        setFundingBody("");                 // <-- reset
         setProgramDate(null);
         setSelectedFilePath(null);
         setFileName(null);
         setStatus("");
       } else {
-        MySwal.fire({
-          icon: "error",
-          title: "Upload Failed",
-          text: res?.error || "Unknown error",
-        });
+        MySwal.fire({ icon: "error", title: "Upload Failed", text: res?.error || "Unknown error" });
       }
     } catch (err) {
-      console.error(err);
-      MySwal.fire({
-        icon: "error",
-        title: "Upload Failed",
-        text: String(err),
-      });
+      MySwal.fire({ icon: "error", title: "Upload Failed", text: String(err) });
     } finally {
       setIsUploading(false);
     }
   };
+
 
   return (
     <div className="page-content">
@@ -189,6 +191,29 @@ const SheetUpload = () => {
                           </option>
                         ))}
                       </select>
+                    </Col>
+
+                    <Col md={4} className="mb-3" title="Make sure your data file has a column named Funding Body">
+                      <h6 className="card-title" >
+                      Funding Body (Auto)
+                      {<RequiredAsterisk />}
+                      </h6>
+                      <div>
+                        <select
+                          className="form-select"
+                          value={fundingBody}
+                          style={{ height: "40px" }}
+                          onChange={(e) => setFundingBody(e.target.value)}
+
+                        >
+                        {FUNDINGBODY.map((pt) => (
+                          <option key={pt.value} value={pt.value}>
+                            {pt.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      </div>
                     </Col>
 
                     
@@ -313,9 +338,9 @@ const SheetUpload = () => {
                         </InputGroup>
                       </Col>
 
-                      <Col md={4} className="mt-3" title="Make sure your data file has a column named Program Incharge">
+                      <Col md={4} className="mt-3" title="Make sure your data file has a column named Facilitator">
                             <h6 className="card-title" >
-                          Program Incharge (Auto)
+                          Facilitator (Auto)
                           {<RequiredAsterisk />}
                         </h6>
                         <div>
@@ -323,7 +348,7 @@ const SheetUpload = () => {
                             <Input
                               type="text"
                               className="form-control"
-                              value={personIncharge}
+                              value={facilitator}
                               style={{ height: "40px" }}
                               disabled
                             />
