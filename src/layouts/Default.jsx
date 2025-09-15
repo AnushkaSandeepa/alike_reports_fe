@@ -32,22 +32,25 @@ const DefaultLayout = () => {
 				</div>
 			</div> */}
 
-			<div
-				style={{
-					position: 'relative',
-					minHeight: '100vh',
-					overflow: 'hidden',
-    				backgroundImage: `linear-gradient(rgba(255, 255, 255, 0.4), rgba(15, 15, 15, 0.4)), url(${bgImage})`,
-					backgroundSize: 'cover',
-					backgroundPosition: 'center',
-					backgroundRepeat: 'no-repeat',
-					//opacity: 0.6, 
-				}}
-				>
-				<div style={{ position: 'relative', zIndex: 1, paddingTop: '6%' }}>
+			<div style={{ position: 'relative', minHeight: '100vh', overflow: 'hidden' }}>
+				{/* background layer */}
+				<div
+					aria-hidden
+					style={{
+					position: 'absolute',
+					inset: 0,
+					background: `url(${bgImage}) center / cover no-repeat`,
+					opacity: 0.5,          // <- only the image fades
+					zIndex: 0,
+					pointerEvents: 'none',  // clicks pass through
+					}}
+				/>
+				{/* content layer */}
+				<div style={{ position: 'relative', zIndex: 1}}>
 					<Outlet />
 				</div>
-				</div>
+			</div>
+
 		</Suspense>
 	);
 };

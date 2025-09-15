@@ -130,6 +130,14 @@ const EventReportTableContainer = ({
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   };
 
+  const parseYMD = (s) => {
+    if (!s) return undefined;
+    const [y, m, d] = String(s).split("-").map(Number);
+    if (!y || !m || !d) return undefined;
+    return new Date(y, m - 1, d); // local midnight, avoids TZ shifts
+  };
+
+
   useEffect(() => {
     const off = window.electronAPI.on?.("report-updated", ({ reportId, reportStatus }) => {
       setReports(prev => prev.map(r => r.reportId === reportId ? { ...r, reportStatus } : r));
@@ -142,7 +150,7 @@ const EventReportTableContainer = ({
     setAllReports(result || []);
   };
 
-useEffect(() => {
+  useEffect(() => {
     const fetchSheets = async () => {
       setLoadingSheets(true);
       const result = await window.electronAPI.getUploadedSheets();
@@ -157,14 +165,12 @@ useEffect(() => {
     fetchSheets();
   }, []);
 
-  console.log("dateRange:", fmtISO(dateRange[0]));
-
   // Filter spreadsheets for the selected program type
   const filteredSheets = programType
     ? allSheets.filter(sheet => String(sheet.programType) === programType)
     : []
   ;
-
+  
   const handleGenerateReport = async () => {
     const sheet = filteredSheets.find(s => s.storedAt === spreadsheet);
     if (!sheet) return;
@@ -176,9 +182,22 @@ useEffect(() => {
     const evaluationStartDate = fmtISO(dateRange[0]);
     const evaluationEndDate   = fmtISO(dateRange[1]);
 
-    const alreadyGenerated = allReports.some(r => r.spreadsheet_id === sheet.fileId);
-    if (alreadyGenerated) {
-      Swal.fire({ icon: "error", title: "Oops!", text: "Report has already been generated for this spreadsheet!" });
+    // Exact-match duplicate: same spreadsheet + same start/end
+    const existsSameRange = allReports.some((r) => {
+      if (!r) return false;
+      const start = String(r.evaluation_start || r.evaluationStart || "").slice(0, 10);
+      const end   = String(r.evaluation_end   || r.evaluationEnd   || "").slice(0, 10);
+      return r.spreadsheet_id === sheet.fileId
+        && start === evaluationStartDate
+        && end   === evaluationEndDate;
+    });
+
+    if (existsSameRange) {
+      Swal.fire({
+        icon: "error",
+        title: "Already generated",
+        text: "You’ve already generated a report for this spreadsheet with the same date range. Delete the existing report or choose a different range.",
+      });
       return;
     }
 
@@ -229,6 +248,7 @@ useEffect(() => {
               onChange={(e) => {
                 setProgramType(e.target.value);
                 setSpreadsheet("");
+                setDateRange([]);
               }}
               className="form-select"
             >
@@ -244,10 +264,24 @@ useEffect(() => {
             <h6>Select Program's Spreadsheet</h6>
             <select
               value={spreadsheet}
-              onChange={(e) => setSpreadsheet(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSpreadsheet(value);
+
+                const sheet = filteredSheets.find(s => s.storedAt === value);
+                if (sheet) {
+                  const start = parseYMD(sheet.includedRange?.start) || parseYMD(sheet.programDate);
+                  const end   = parseYMD(sheet.includedRange?.end)   || parseYMD(sheet.programDate);
+                  if (start && end) setDateRange([start, end]);     // 👈 pre-fill picker
+                  else setDateRange([]);
+                } else {
+                  setDateRange([]);
+                }
+              }}
               className="form-select"
               disabled={!programType || loadingSheets}
             >
+
               <option value="">
                 {loadingSheets ? "Loading..." : "Select the Sheet"}
               </option>

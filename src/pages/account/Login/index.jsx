@@ -28,7 +28,7 @@ export default function Login() {
   const { loading, login, redirectUrl, isAuthenticated } = useLogin();
 
   return (
-    <div >
+    <div style={{paddingTop: '7%' }}>
       {isAuthenticated && <Navigate to={redirectUrl} replace />}
 
       <PageBreadcrumb title="Login" />

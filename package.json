@@ -1,7 +1,7 @@
 {
   "name": "alike-reports",
-  "version": "0.1.0",
-  "description": "Sample desktop app for Alike Reports",
+  "version": "0.2.0",
+  "description": "Desktop app for Alike Reports",
   "author": "Anushka Sandeepa Dissanayaka Mudiyanselage <",
   "private": true,
   "type": "module",

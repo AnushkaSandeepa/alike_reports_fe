@@ -14,7 +14,7 @@ const Logout = () => {
 		<>
 			<PageBreadcrumb title="Logout" />
 				
-				<Row>
+				<Row style={{paddingTop:"4%"}}> 
 					<Col md={4}></Col>
 					<Col md={4} >
 						<div style={{paddingTop:"40px"}}>
@@ -25,7 +25,7 @@ const Logout = () => {
 								<h4 className="text-dark-50 text-center mt-0 fw-bold">
 									{t('See You Again !')}
 								</h4>
-								<p className="text-muted mb-4">{t('You are now successfully sign out.')}</p>
+								<p className="mb-4">{t('You are now successfully sign out.')}</p>
 
 								<div className="logout-icon m-auto"  style={{ pointerEvents: 'none' }}>
 									<svg

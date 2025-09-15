@@ -28,7 +28,7 @@ export default function Register() {
 	const { loading, register, isAuthenticated, schema } = useRegister();
 
 	return (
-		<>
+		<div style={{paddingTop: '5%' }}>
 			{isAuthenticated && <Navigate to="/" replace />}
 			<PageBreadcrumb title="Register" />
 			<AccountWrapper bottomLinks={<BottomLink />}>
@@ -96,6 +96,6 @@ export default function Register() {
 					</div>
 				</Form>
 			</AccountWrapper>
-		</>
+		</div>
 	);
 }
