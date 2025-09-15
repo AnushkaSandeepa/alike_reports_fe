@@ -182,7 +182,7 @@ const handleToggleStatus = useCallback(async (reportId, currentStatus) => {
       [handleDelete, handleToggleStatus]
   );
 
-  document.title = "Data Tables | Skote - React Admin & Dashboard Template";
+  document.title = "Program Evaluation | Alike WA";
 
   return (
     <div className="page-content">

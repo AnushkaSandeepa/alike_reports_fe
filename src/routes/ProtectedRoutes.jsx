@@ -9,6 +9,7 @@ import SheetUpload from '@/pages/Uploading/SpreadsheetUpload';
 import EventSheetsTable from '@/pages/SheetList/SpreadsheetsTable';
 import EventReportGenerate from '@/pages/EvaluationProgram/ProgramReportTable';
 import AnnualReportGenerate from '@/pages/EvaluationAnnual/AnnualReportTable';
+import AdditionalEvaluations from '@/pages/AdditionalEvaluations/additionalEvlMain';
 
 
 /**
@@ -39,6 +40,8 @@ export default function ProtectedRoutes() {
 				<Route path="sheetslist/*" element={<EventSheetsTable />} />
 				<Route path="event_reports/*" element={<EventReportGenerate />} />
 				<Route path="annual_reports/*" element={<AnnualReportGenerate />} />
+				<Route path="additional_evaluations/*" element={<AdditionalEvaluations />} />
+
 
 			     
 				

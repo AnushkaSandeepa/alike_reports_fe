@@ -28,6 +28,12 @@ const MENU_ITEMS = [
 	label: 'Annual Evaluation',
 	icon: 'fas fa-calendar-alt',
 	url: '/annual_reports',
+	},
+	{
+	key: 'additional_evaluations',
+	label: 'Additional Evaluations',
+	icon: 'fas fa-file-upload',
+	url: '/additional_evaluations',
 	}
 
 ];
@@ -73,7 +79,15 @@ const HORIZONTAL_MENU_ITEMS = [
         icon: 'fas fa-calendar-alt',
         url: '/annual_reports',
         parentKey: 'dashboards',
-      }
+      },
+      {
+        key: 'additional_evaluations',  
+        label: 'Additinal Evaluations',
+        icon: 'fas fa-file-upload',
+        url: '/additional_evaluations',
+        parentKey: 'dashboards',
+      },
+
     ],
   },
 ];

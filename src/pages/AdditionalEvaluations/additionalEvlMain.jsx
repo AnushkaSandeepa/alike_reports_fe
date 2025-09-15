@@ -83,13 +83,13 @@ const AdditionalEvaluations = () => {
       // Reuse IPC `storeSpreadsheet` contract:
       // - programType  -> mediaType
       // - programDate  -> uploadDateISO (today)
-      // - fundingBody -> null (not applicable here)
+      // - personIncharge -> null (not applicable here)
       // - dateRange -> nulls (not applicable here)
       const res = await window.electronAPI.storeSpreadsheet({
         sourcePath: selectedFilePath,
         programType: mediaType,
         programDate: uploadDateISO,
-        fundingBody: null,
+        personIncharge: null,
         dateRange: { start: null, end: null },
       });
 
