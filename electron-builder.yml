@@ -21,6 +21,9 @@ extraResources:
     to: scripts
     filter:
       - "**/*"
+      
+  - from: seeds/website_downloads_db.json
+    to: seeds/website_downloads_db.json
 
 win:
   target:

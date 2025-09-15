@@ -3,17 +3,19 @@ const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
-// Use app.isPackaged instead of NODE_ENV checks (more reliable in builds)
+// More reliable than NODE_ENV for packaged apps
 const isDev = !app.isPackaged;
 
-// Register IPC modules (unchanged)
-require("./ipcHandlers.cjs")(ipcMain);
-require("./ipcReportGenerate.cjs")(ipcMain);
-require("./ipcPeriodReports.cjs")(ipcMain);
-require("./ipcAdditionalEvaluations.cjs")();
+// Lazy-require so we can call after ready
+const ensureSeeds = require("./ensureSeeds.cjs");
+
+// If your module exports a function(ipcMain) keep it, else call with ()
+const registerIpcHandlers      = require("./ipcHandlers.cjs");
+const registerReportGenerate   = require("./ipcReportGenerate.cjs");   // exports function ()
+const registerPeriodReports    = require("./ipcPeriodReports.cjs");
+const registerAdditionalEvals  = require("./ipcAdditionalEvaluations.cjs"); // exports function ()
 
 function getIndexHtmlPath() {
-  // Support both build layouts:
   const candidates = [
     path.join(__dirname, "../dist/index.html"),
     path.join(__dirname, "../dist/renderer/index.html"),
@@ -21,11 +23,8 @@ function getIndexHtmlPath() {
   for (const p of candidates) {
     if (fs.existsSync(p)) return p;
   }
-  throw new Error(
-    "Renderer build not found. Did you run `npm run build:renderer`?"
-  );
+  throw new Error("Renderer build not found. Did you run `npm run build:ui`?");
 }
-
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -41,7 +40,7 @@ function createWindow() {
   if (isDev) {
     const devUrl = process.env.VITE_DEV_SERVER_URL || "http://localhost:5173";
     win.loadURL(devUrl);
-    win.webContents.openDevTools();
+    win.webContents.openDevTools(); // dev only
   } else {
     win.loadFile(getIndexHtmlPath());
     win.webContents.on("did-fail-load", (_e, code, desc, url) => {
@@ -50,8 +49,7 @@ function createWindow() {
     win.webContents.on("console-message", (_e, level, message) => {
       console.log("renderer:", message);
     });
-    win.webContents.openDevTools(); // remove after it’s fixed
-
+    // win.webContents.openDevTools(); // ← keep disabled in prod
   }
 }
 
@@ -68,9 +66,20 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
-    // Windows notifications & jump list identity
     try { app.setAppUserModelId("com.alike.reports"); } catch {}
+
+    // 1) Seed after ready (safe app.getPath)
+    ensureSeeds();
+
+    // 2) Register IPCs
+    registerIpcHandlers(ipcMain);
+    try { registerReportGenerate(); } catch { registerReportGenerate(ipcMain); }
+    registerPeriodReports(ipcMain);
+    registerAdditionalEvals(); // zero-arg
+
+    // 3) Create window
     createWindow();
+
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
