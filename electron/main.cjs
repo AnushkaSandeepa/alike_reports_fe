@@ -10,6 +10,7 @@ const isDev = !app.isPackaged;
 require("./ipcHandlers.cjs")(ipcMain);
 require("./ipcReportGenerate.cjs")(ipcMain);
 require("./ipcPeriodReports.cjs")(ipcMain);
+require("./ipcAdditionalEvaluations.cjs")();
 
 function getIndexHtmlPath() {
   // Support both build layouts:
@@ -24,6 +25,7 @@ function getIndexHtmlPath() {
     "Renderer build not found. Did you run `npm run build:renderer`?"
   );
 }
+
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -42,8 +44,14 @@ function createWindow() {
     win.webContents.openDevTools();
   } else {
     win.loadFile(getIndexHtmlPath());
-    // Optional: hide menu in packaged builds
-    // win.removeMenu();
+    win.webContents.on("did-fail-load", (_e, code, desc, url) => {
+      console.error("did-fail-load", code, desc, url);
+    });
+    win.webContents.on("console-message", (_e, level, message) => {
+      console.log("renderer:", message);
+    });
+    win.webContents.openDevTools(); // remove after it’s fixed
+
   }
 }
 

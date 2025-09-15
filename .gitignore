@@ -1,26 +1,19 @@
-# Logs
+﻿node_modules/
+dist/
+build/
+out/
+.next/
+coverage/
+*.log
+*.zip
+*.7z
+*.rar
+*.mp4
+*.mov
+*.csv
+# build artifacts
+dist_electron/
+# dependencies (if present)
+node_modules/
 # logs
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-.yarn
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-node_modules

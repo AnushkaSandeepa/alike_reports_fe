@@ -3,16 +3,16 @@ productName: Alike Reports (Sample)
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 
 directories:
-  output: dist
+  output: dist_electron
   buildResources: build
 
 files:
-  - "electron/**"
-  - "dist/renderer/**"     # Vite renderer output
-  - "!node_modules/*/{test,__tests__}/**"
-  - "!**/*.map"
+  - dist/**
+  - electron/**
+  - package.json
 
 npmRebuild: false
+
 
 asar: true
 
@@ -42,3 +42,9 @@ linux:
     - AppImage
     - deb
   category: Utility
+
+# ⚠️ GitHub publishing
+publish:
+  provider: github
+  owner: AnushkaSandeepa
+  repo: alike_reports_fe

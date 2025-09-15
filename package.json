@@ -1,7 +1,9 @@
 {
-  "name": "hyper-react-js",
+  "name": "alike-reports",
+  "version": "0.1.0",
+  "description": "Sample desktop app for Alike Reports",
+  "author": "Anushka Sandeepa Dissanayaka Mudiyanselage <",
   "private": true,
-  "version": "4.0.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
