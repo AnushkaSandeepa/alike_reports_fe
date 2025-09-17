@@ -220,9 +220,9 @@
     global-agent "^3.0.0"
 
 "@electron/node-gyp@git+https://github.com/electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2":
-  version "10.2.0-electron.1"
-  resolved "git+ssh://git@github.com/electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2"
-  integrity sha512-4MSBTT8y07YUDqf69/vSh80Hh791epYqGtWHO3zSKhYFwQg+gx9wi1PqbqP6YqC4WMsNxZ5l9oDmnWdK5pfCKQ==
+  version "10.2.0-electron.2"
+  resolved "git+ssh://git@github.com/electron/node-gyp.git"
+  integrity sha512-DGdU8Ch0qD0J3e5dL3kugxM8ScJE3vn/eh/c1qZ8dc0esBAumrOTq4DmzxJdDmQY96Vwa4cPmcheXSuzv9Frag==
   dependencies:
     env-paths "^2.2.0"
     exponential-backoff "^3.1.1"

@@ -2,32 +2,51 @@
 const { app, ipcMain, BrowserWindow, dialog } = require("electron");
 const fs = require("fs");
 const path = require("path");
+const { spawn } = require("child_process");
 
 module.exports = function registerAdditionalEvaluationsIPC() {
-  const dataDir = path.join(app.getPath("userData"), "Documents");
+  // ===== Directories =====
+  const dataDir = path.join(app.getPath("userData"), "Documents");              // JSON + WebsiteDownloads DB
+  const uploadSolDir = path.join(app.getPath("userData"), "UploadFile", "SOL"); // keep only ONE SLO file here
   const wdDbPath = path.join(dataDir, "website_downloads_db.json");
+  const analyticsPath = path.join(dataDir, "analytics.json");
 
-  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  for (const p of [dataDir, uploadSolDir]) {
+    if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
+  }
   if (!fs.existsSync(wdDbPath)) fs.writeFileSync(wdDbPath, "[]", "utf8");
 
-  const readJson = async (p) => {
+  // ===== Utils =====
+  const readJson = async (p, fallback = []) => {
     try { return JSON.parse(await fs.promises.readFile(p, "utf8") || "[]"); }
-    catch { return []; }
+    catch { return fallback; }
   };
-  const writeJsonAtomic = async (p, db) => {
+  const writeJsonAtomic = async (p, obj) => {
     const tmp = p + ".tmp";
-    await fs.promises.writeFile(tmp, JSON.stringify(db, null, 2), "utf8");
+    await fs.promises.writeFile(tmp, JSON.stringify(obj, null, 2), "utf8");
     await fs.promises.rename(tmp, p);
   };
-  const makeId = () => "WD" + Math.random().toString(36).slice(2, 8).toUpperCase();
+  const makeId = (prefix = "WD") => prefix + Math.random().toString(36).slice(2, 8).toUpperCase();
+  const nowIso = () => new Date().toISOString();
 
   const broadcast = (channel, payload) => {
     for (const win of BrowserWindow.getAllWindows()) {
       try { win.webContents.send(channel, payload); } catch {}
     }
   };
+  const sendProgress = (step, message, meta = {}) =>
+    broadcast("AdditionalEvaluations:progress", { step, message, ...meta });
 
-  // --- CSV helpers (with totals row support) ---
+  const clearDir = async (dir) => {
+    try {
+      const items = await fs.promises.readdir(dir, { withFileTypes: true });
+      await Promise.all(items.map((it) =>
+        fs.promises.rm(path.join(dir, it.name), { recursive: true, force: true })
+      ));
+    } catch (_) {}
+  };
+
+  // ===== CSV helpers (with totals row support) =====
   const csvEscape = (v) => {
     if (v == null) return "";
     const s = String(v);
@@ -48,7 +67,9 @@ module.exports = function registerAdditionalEvaluationsIPC() {
     return csv + "\n";
   };
 
-  // ========= WebsiteDownloads namespace =========
+  // =========================================================================================
+  // WebsiteDownloads namespace (kept intact)
+  // =========================================================================================
   ipcMain.handle("WebsiteDownloads:get-all", async () => {
     return await readJson(wdDbPath);
   });
@@ -109,7 +130,6 @@ module.exports = function registerAdditionalEvaluationsIPC() {
     }
   });
 
-  // Export CSV (includes header + TOTAL row; writes with UTF-8 BOM for Excel)
   ipcMain.handle("WebsiteDownloads:export-csv", async (_event, payload = {}) => {
     try {
       const rows = Array.isArray(payload.rows) && payload.rows.length
@@ -132,4 +152,137 @@ module.exports = function registerAdditionalEvaluationsIPC() {
       return { success: false, error: e.message };
     }
   });
+
+  // =========================================================================================
+  // AdditionalEvaluations namespace — SLO upload -> Python -> analytics.json (single)
+  // =========================================================================================
+  const getPythonExe = () => {
+    if (process.env.PYTHON_PATH && fs.existsSync(process.env.PYTHON_PATH)) return process.env.PYTHON_PATH;
+    return process.platform === "win32" ? "py" : "python3";
+  };
+  const runPython = ({ scriptPath, args = [], onStdout, onStderr }) =>
+    new Promise((resolve, reject) => {
+      const exe = getPythonExe();
+      let outBuf = "";
+      let errBuf = "";
+      const child = spawn(exe, [scriptPath, ...args], { shell: process.platform === "win32" });
+
+      child.stdout.on("data", (d) => {
+        const s = d.toString();
+        outBuf += s;
+        onStdout?.(s);
+      });
+      child.stderr.on("data", (d) => {
+        const s = d.toString();
+        errBuf += s;
+        onStderr?.(s);
+      });
+      child.on("error", reject);
+      child.on("close", (code) => {
+        if (code === 0) resolve({ out: outBuf, err: errBuf });
+        else reject(new Error(`python exited ${code}\nSTDERR:\n${errBuf}\nSTDOUT:\n${outBuf}`));
+      });
+    });
+
+
+  ipcMain.handle("AdditionalEvaluations:upload", async (_evt, payload = {}) => {
+    try {
+      const documentType = (payload.documentType || "").trim();
+      const filePath = payload.filePath;               // optional absolute path
+      const originalName = payload.originalName || ""; // used when fileBytes provided
+      const fileBytes = payload.fileBytes;             // optional Uint8Array/ArrayBuffer/array
+
+      if (!documentType) return { success: false, error: "documentType is required" };
+      if (documentType !== "SLOComparison")
+        return { success: false, error: `Unsupported documentType: ${documentType}` };
+
+      // keep only ONE file in SOL
+      sendProgress("prepare", "Preparing upload location…");
+      await clearDir(uploadSolDir);
+
+      // Resolve upload destination
+      const resolveBuffer = (bytes) => {
+        if (Buffer.isBuffer(bytes)) return bytes;
+        if (bytes?.type === "Buffer" && Array.isArray(bytes.data)) return Buffer.from(bytes.data);
+        if (bytes instanceof Uint8Array) return Buffer.from(bytes);
+        if (ArrayBuffer.isView(bytes)) return Buffer.from(bytes.buffer);
+        if (bytes instanceof ArrayBuffer) return Buffer.from(bytes);
+        if (Array.isArray(bytes)) return Buffer.from(bytes);
+        throw new Error("Unsupported fileBytes payload");
+      };
+
+      let destPath = null;
+
+      if (filePath && fs.existsSync(filePath)) {
+        // We got an absolute path – just copy it
+        const ext = path.extname(filePath) || ".bin";
+        destPath = path.join(uploadSolDir, `SLO_Current${ext}`);
+        sendProgress("copy", "Copying file…");
+        await fs.promises.copyFile(filePath, destPath);
+      } else if (fileBytes && originalName) {
+        // No path – write the incoming bytes
+        const ext = path.extname(originalName) || ".bin";
+        destPath = path.join(uploadSolDir, `SLO_Current${ext}`);
+        sendProgress("write", "Writing uploaded file…");
+        await fs.promises.writeFile(destPath, resolveBuffer(fileBytes));
+      } else {
+        return { success: false, error: "filePath is invalid and no fileBytes provided" };
+      }
+
+      // Run python -> write single analytics.json into Documents (overwrite each time)
+      sendProgress("process", "Running SLO processor…");
+      const appRoot = app.isPackaged ? process.resourcesPath : app.getAppPath();
+      const scriptPath = path.join(appRoot, "scripts", "slo_file_processor.py");
+
+      const args = ["--input", destPath, "--outdir", dataDir];
+      await runPython({
+        scriptPath,
+        args,
+        onStdout: (s) => sendProgress("python", s.trim()),
+        onStderr: (s) => sendProgress("python-stderr", s.trim())
+      });
+
+      const outJsonPath = path.join(dataDir, "analytics.json");
+      if (!fs.existsSync(outJsonPath)) {
+        return { success: false, error: "SLO processor did not produce analytics.json" };
+      }
+
+      const data = await readJson(outJsonPath, {});
+      sendProgress("done", "Completed.", { uploaded: destPath, json: outJsonPath });
+
+      return {
+        success: true,
+        documentType,
+        uploadedPath: destPath,   // userData/UploadFile/SOL/SLO_Current.<ext>
+        jsonPath: outJsonPath,    // userData/Documents/analytics.json
+        data,
+        meta: { updated_at: nowIso() }
+      };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  // Read analytics.json (used by charts)
+  ipcMain.handle("Additional:read-analytics", async () => {
+    try {
+      const txt = await fs.promises.readFile(analyticsPath, "utf8");
+      const json = JSON.parse(txt);
+      return { success: true, data: json, path: analyticsPath };
+    } catch (e) {
+      return { success: false, error: e.message, path: analyticsPath };
+    }
+  });
+
+  // (Optional) watch file changes and push updates
+  try {
+    fs.watch(dataDir, { persistent: false }, (eventType, filename) => {
+      if (filename === "analytics.json") {
+        for (const win of BrowserWindow.getAllWindows()) {
+          win.webContents.send("Additional:analytics-updated");
+        }
+      }
+    });
+  } catch {}
+
 };

@@ -77,7 +77,7 @@ export default function WebsiteDownloads() {
   };
 
   const handleDelete = async (row) => {
-    const confirm = await MySwal.fire({
+      const confirm = await MySwal.fire({
       icon: "warning",
       title: "Delete this item?",
       text: `${row.name} (${row.downloads})`,
@@ -209,7 +209,7 @@ export default function WebsiteDownloads() {
                             title="Delete"
                             className="fs-5"
                             style={{ cursor: "pointer", color: "#dc3545" }}
-                            onClick={() => handleDelete(row.reportId, row.spreadsheet_name)}
+                            onClick={() => handleDelete(row)}
                             />
                         {/* <Button size="sm" color="danger" onClick={() => handleDelete(row)}>Delete</Button> */}
                       </div>

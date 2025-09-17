@@ -67,7 +67,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.removeListener(channel, wrapped); // <-- unsubscribe
   },
 
-  // ===== WebsiteDownloads APIs =====
+  // ===== WebsiteDownloads APIs for PIF =====
   getWebsiteDownloads:     ()        => ipcRenderer.invoke("WebsiteDownloads:get-all"),
   addWebsiteDownload:      (item)    => ipcRenderer.invoke("WebsiteDownloads:add", item),
   updateWebsiteDownload:   (payload) => ipcRenderer.invoke("WebsiteDownloads:update", payload),
@@ -80,6 +80,47 @@ contextBridge.exposeInMainWorld("electronAPI", {
     const wrapped = (_e, payload) => { try { handler(payload); } catch {} };
     ipcRenderer.on(channel, wrapped);
     return () => ipcRenderer.removeListener(channel, wrapped);
+  },
+
+  // ===== WebsiteDownloads APIs for SOL insights =====
+  uploadAdditionalData: (documentType, filePath) =>
+    ipcRenderer.invoke("AdditionalEvaluations:upload", { documentType, filePath }),
+
+  // New: pass a File object OR a path string; it will do the right thing
+  uploadAdditionalDataAuto: async (documentType, fileOrPath) => {
+    if (typeof fileOrPath === "string") {
+      return ipcRenderer.invoke("AdditionalEvaluations:upload", { documentType, filePath: fileOrPath });
+    }
+    if (fileOrPath?.path && typeof fileOrPath.path === "string") {
+      // Electron sometimes gives you a real absolute path here
+      return ipcRenderer.invoke("AdditionalEvaluations:upload", {
+        documentType,
+        filePath: fileOrPath.path
+      });
+    }
+    // No reliable path -> read bytes and send them
+    const ab = await fileOrPath.arrayBuffer();
+    // pass a plain array (best cross-IPC compatibility)
+    const bytesArray = Array.from(new Uint8Array(ab));
+    return ipcRenderer.invoke("AdditionalEvaluations:upload", {
+      documentType,
+      originalName: fileOrPath.name || "upload.xlsx",
+      fileBytes: bytesArray
+    });
+  },
+
+  onAdditionalEvaluationsProgress: (cb) => {
+    const fn = (_e, p) => cb?.(p);
+    ipcRenderer.on("AdditionalEvaluations:progress", fn);
+    return () => ipcRenderer.removeListener("AdditionalEvaluations:progress", fn);
+  },
+
+  readAnalytics: () => ipcRenderer.invoke("Additional:read-analytics"),
+  onAnalyticsUpdated: (cb) => {
+    const fn = () => cb?.();
+    ipcRenderer.removeAllListeners("Additional:analytics-updated");
+    ipcRenderer.on("Additional:analytics-updated", fn);
+    return () => ipcRenderer.off("Additional:analytics-updated", fn);
   },
 
 });

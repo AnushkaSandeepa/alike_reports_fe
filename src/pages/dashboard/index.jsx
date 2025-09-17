@@ -7,6 +7,7 @@ import { PageBreadcrumb } from '@/components';
 import LineBar from './linebarchart';
 import WebsiteDownloadsViz from './websitedownloadchart';
 import PlatformBySocialType from './socialMediaReaches';
+import SLO1Charts from './SLO1Charts';
 
 // --- inline hook in the same file ---
 function useWebsiteDownloadsInline() {
@@ -106,6 +107,9 @@ const Dashboard = () => {
 
 
 		<PlatformBySocialType/>
+
+    <SLO1Charts />
+
           
       </Container>
     </React.Fragment>
