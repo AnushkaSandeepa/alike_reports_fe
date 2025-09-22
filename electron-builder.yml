@@ -21,8 +21,6 @@ extraResources:
     to: scripts
     filter:
       - "**/*"
-    filter:
-      - "slo_processor.py"
 
   - from: seeds/website_downloads_db.json
     to: seeds/website_downloads_db.json

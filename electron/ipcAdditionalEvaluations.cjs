@@ -384,6 +384,36 @@ module.exports = function registerAdditionalEvaluationsIPC() {
     return { success: true, platforms, metricsByPlatform };
   });
 
+  const postsPath = path.join(socialMediaDir, "social_posts.json");
+
+  ipcMain.handle("SocialPosts:get", async (_evt, filters = {}) => {
+    try {
+      const rows = fs.existsSync(postsPath)
+        ? JSON.parse(await fs.promises.readFile(postsPath, "utf8"))
+        : [];
+
+      const { platforms, types, from, to } = filters;
+      const inRange = (iso) => {
+        if (!from && !to) return true;
+        const t = new Date(iso).getTime();
+        return (!from || t >= new Date(from).getTime()) &&
+              (!to   || t <= new Date(to).getTime());
+      };
+
+      const out = rows.filter(r =>
+        (!platforms || platforms.includes(r.platform)) &&
+        (!types || types.includes(r.type)) &&
+        inRange(r.posted_at)
+      );
+
+      return { success: true, rows: out };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
+
+
   // ============================
   // Analytics.json read + watch
   // ============================

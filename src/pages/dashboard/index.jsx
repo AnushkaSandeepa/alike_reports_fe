@@ -11,6 +11,8 @@ import SLO1Charts from './SLO1Charts';
 import MetricLineChart from './MetricLineChart';
 import FacebookComboChart from './FacebookComboChart';
 import InstagramEfficiencyScatter from './InstagramEfficiencyScatter';
+import LinkedInComboChart from './LinkedInComboChart';
+import NewsletterComboChart from './NewsletterComboChart';
 
 // --- inline hook in the same file ---
 function useWebsiteDownloadsInline() {
@@ -129,6 +131,10 @@ const Dashboard = () => {
     <FacebookComboChart />
 
     <InstagramEfficiencyScatter/>
+
+    <LinkedInComboChart />
+
+    <NewsletterComboChart/>
 
       </Container>
     </React.Fragment>

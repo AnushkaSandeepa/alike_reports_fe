@@ -151,6 +151,8 @@ def _merge(out_json: Path, new_rows: list[dict]):
         idx[key(r)] = r
     out_json.write_text(json.dumps(list(idx.values()), ensure_ascii=False, indent=2), encoding="utf-8")
 
+# ---- main ----
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--input",  required=True, help="Path to workbook")
@@ -182,6 +184,8 @@ def main():
         else:
             out_json.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"Wrote {out_json} ({len(rows)} rows)")
+
+        
 
 if __name__ == "__main__":
     main()

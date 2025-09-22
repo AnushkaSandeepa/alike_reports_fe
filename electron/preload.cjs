@@ -134,5 +134,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   listSocialPlatforms: () =>
     ipcRenderer.invoke("SocialMedia:list-platforms"),
 
+  getSocialPosts: (filters) => ipcRenderer.invoke("SocialPosts:get", filters),
+
+
 
 });

@@ -19,18 +19,18 @@ import {
 export default function PlatformBySocialType() {
   // ---- Hardcoded rows ----
   const rows = [
-    { date: "23/01/2023", platform: "Facebook",     type: "Launch Video",            reach: 177, er: "6%"  },
+    { date: "23/01/2023", platform: "Test Data",     type: "Launch Video",            reach: 177, er: "6%"  },
     { date: "23/01/2023", platform: "Instagram",    type: "Launch Video",            reach: 101, er: "6%"  },
     { date: "23/01/2023", platform: "LinkedIn",     type: "Launch Video",            reach: 227, er: "9%"  },
     { date: "31/01/2023", platform: "e-Newsletter", type: "Promotion",               reach: 309, er: "12%" },
-    { date: "02/02/2023", platform: "Facebook",     type: "Project Feature",         reach: 80,  er: "4%"  },
-    { date: "09/02/2023", platform: "Facebook",     type: "Project Feature",         reach: 75,  er: "7%"  },
-    { date: "16/02/2023", platform: "Facebook",     type: "Project Feature",         reach: 86,  er: "6%"  },
-    { date: "23/02/2023", platform: "Facebook",     type: "Project Feature",         reach: 79,  er: "4%"  },
+    { date: "02/02/2023", platform: "Test Data",     type: "Project Feature",         reach: 80,  er: "4%"  },
+    { date: "09/02/2023", platform: "Test Data",     type: "Project Feature",         reach: 75,  er: "7%"  },
+    { date: "16/02/2023", platform: "Test Data",     type: "Project Feature",         reach: 86,  er: "6%"  },
+    { date: "23/02/2023", platform: "Test Data",     type: "Project Feature",         reach: 79,  er: "4%"  },
     { date: "28/02/2023", platform: "e-Newsletter", type: "Promotion",               reach: 359, er: "3%"  },
-    { date: "02/03/2023", platform: "Facebook",     type: "Project Feature",         reach: 70,  er: "19%" },
-    { date: "09/03/2023", platform: "Facebook",     type: "Project Feature",         reach: 51,  er: "0%"  },
-    { date: "17/03/2023", platform: "Facebook",     type: "Round Closing Soon Post", reach: 61,  er: "13%" },
+    { date: "02/03/2023", platform: "Test Data",     type: "Project Feature",         reach: 70,  er: "19%" },
+    { date: "09/03/2023", platform: "Test Data",     type: "Project Feature",         reach: 51,  er: "0%"  },
+    { date: "17/03/2023", platform: "Test Data",     type: "Round Closing Soon Post", reach: 61,  er: "13%" },
   ];
 
   // ---- Aggregate (bar + pie share), keep a shared color per platform ----
