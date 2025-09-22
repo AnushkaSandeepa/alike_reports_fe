@@ -23,17 +23,13 @@ def month_from_cell(x):
     if not m:
         return (None, None)
     name = m.group(1)
-    # normalize to title-case short/long we already know
-    # (capitalize first letter only; rest lower)
+    # Normalise case
     name_norm = name[0].upper() + name[1:].lower()
-    # Map September variants to a canonical label present in MONTH_TO_NUM
+    # Map September variants to canonical
     if name_norm.startswith("Sept"):
         name_norm = "September"
-    # If an abbr exists, prefer that; else full
-    if name_norm[:3] in MONTH_TO_NUM:
-        key = name_norm[:3]
-    else:
-        key = name_norm
+    # Prefer abbr key if present
+    key = name_norm[:3] if name_norm[:3] in MONTH_TO_NUM else name_norm
     return (name_norm, int(MONTH_TO_NUM[key]))
 
 # ---- misc helpers ----
@@ -73,7 +69,6 @@ def _parse_common(xlsx_path: Path, sheet: str) -> pd.DataFrame:
 
     metric_row = raw.iloc[1].copy()
     year_row   = raw.iloc[2].copy()
-
     # merged headers → forward-fill metric names
     metric_row = metric_row.where(metric_row.notna(), None).fillna(method="ffill")
 
@@ -152,7 +147,6 @@ def _merge(out_json: Path, new_rows: list[dict]):
     out_json.write_text(json.dumps(list(idx.values()), ensure_ascii=False, indent=2), encoding="utf-8")
 
 # ---- main ----
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--input",  required=True, help="Path to workbook")
@@ -176,7 +170,8 @@ def main():
         elif p == "instagram": rows = parse_instagram(xlsx)
         elif p == "linkedin":  rows = parse_linkedin(xlsx)
         elif p == "newsletter":rows = parse_newsletter(xlsx)
-        elif p == "podbean": rows = parse_podbean(xlsx)
+        elif p == "podbean":   rows = parse_podbean(xlsx)
+        else:                  rows = []
 
         out_json = outd / f"{p}_all.json"
         if args.mode == "merge" and out_json.exists():
@@ -184,8 +179,6 @@ def main():
         else:
             out_json.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"Wrote {out_json} ({len(rows)} rows)")
-
-        
 
 if __name__ == "__main__":
     main()

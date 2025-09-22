@@ -8,26 +8,31 @@ module.exports = function registerAdditionalEvaluationsIPC() {
   // ===== Directories =====
   const dataDir = path.join(app.getPath("userData"), "Documents");              // JSON + WebsiteDownloads DB
   const uploadSolDir = path.join(app.getPath("userData"), "UploadFile", "SOL"); // keep only ONE SLO file here
-  const uploadSmDir  = path.join(app.getPath("userData"), "UploadFile", "SocialMedia"); // NEW
-  const socialMediaDir = path.join(dataDir, "social_media"); // NEW: where Social Media JSONs will live
+  const uploadSmDir  = path.join(app.getPath("userData"), "UploadFile", "SocialMedia"); // Social media uploads
+  const socialMediaDir = path.join(dataDir, "social_media"); // Where Social Media JSONs will live
   const wdDbPath = path.join(dataDir, "website_downloads_db.json");
   const analyticsPath = path.join(dataDir, "analytics.json");
 
+  // Ensure base dirs exist at startup
   for (const p of [dataDir, uploadSolDir, uploadSmDir, socialMediaDir]) {
     if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
   }
   if (!fs.existsSync(wdDbPath)) fs.writeFileSync(wdDbPath, "[]", "utf8");
 
   // ===== Utils =====
+  const ensureDir = (p) => fs.promises.mkdir(p, { recursive: true });
+
   const readJson = async (p, fallback = []) => {
     try { return JSON.parse(await fs.promises.readFile(p, "utf8") || "[]"); }
     catch { return fallback; }
   };
+
   const writeJsonAtomic = async (p, obj) => {
     const tmp = p + ".tmp";
     await fs.promises.writeFile(tmp, JSON.stringify(obj, null, 2), "utf8");
     await fs.promises.rename(tmp, p);
   };
+
   const makeId = (prefix = "WD") => prefix + Math.random().toString(36).slice(2, 8).toUpperCase();
   const nowIso = () => new Date().toISOString();
 
@@ -36,10 +41,13 @@ module.exports = function registerAdditionalEvaluationsIPC() {
       try { win.webContents.send(channel, payload); } catch {}
     }
   };
+
   const sendProgress = (step, message, meta = {}) =>
     broadcast("AdditionalEvaluations:progress", { step, message, ...meta });
 
+  // Clear a dir, but first make sure it exists so readdir never throws for missing path
   const clearDir = async (dir) => {
+    await ensureDir(dir);
     try {
       const items = await fs.promises.readdir(dir, { withFileTypes: true });
       await Promise.all(items.map((it) =>
@@ -54,6 +62,7 @@ module.exports = function registerAdditionalEvaluationsIPC() {
     const s = String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
+
   const toCSV = (rows, { includeTotals = true } = {}) => {
     const headers = ["id","name","downloads","created_at","updated_at"];
     const head = headers.join(",");
@@ -70,7 +79,7 @@ module.exports = function registerAdditionalEvaluationsIPC() {
   };
 
   // =========================================================================================
-  // WebsiteDownloads namespace (unchanged)
+  // WebsiteDownloads namespace
   // =========================================================================================
   ipcMain.handle("WebsiteDownloads:get-all", async () => {
     return await readJson(wdDbPath);
@@ -83,7 +92,7 @@ module.exports = function registerAdditionalEvaluationsIPC() {
       if (!name) return { success: false, error: "name is required" };
       if (!Number.isFinite(n) || n < 0) return { success: false, error: "downloads must be a non-negative number" };
 
-      const now = new Date().toISOString();
+      const now = nowIso();
       const db = await readJson(wdDbPath);
       const rec = { id: makeId(), name, downloads: n, created_at: now, updated_at: now };
       db.push(rec);
@@ -108,7 +117,7 @@ module.exports = function registerAdditionalEvaluationsIPC() {
         if (!Number.isFinite(n) || n < 0) return { success: false, error: "downloads must be a non-negative number" };
         db[i].downloads = n;
       }
-      db[i].updated_at = new Date().toISOString();
+      db[i].updated_at = nowIso();
 
       await writeJsonAtomic(wdDbPath, db);
       broadcast("WebsiteDownloads:updated", { type: "update", id });
@@ -156,12 +165,13 @@ module.exports = function registerAdditionalEvaluationsIPC() {
   });
 
   // =========================================================================================
-  // AdditionalEvaluations namespace — SLO upload (existing) + SocialMedia (NEW)
+  // AdditionalEvaluations — SLO upload + SocialMedia upload
   // =========================================================================================
   const getPythonExe = () => {
     if (process.env.PYTHON_PATH && fs.existsSync(process.env.PYTHON_PATH)) return process.env.PYTHON_PATH;
     return process.platform === "win32" ? "py" : "python3";
   };
+
   const runPython = ({ scriptPath, args = [], onStdout, onStderr }) =>
     new Promise((resolve, reject) => {
       const exe = getPythonExe();
@@ -206,10 +216,10 @@ module.exports = function registerAdditionalEvaluationsIPC() {
         throw new Error("Unsupported fileBytes payload");
       };
 
-      // ---- SLO path (unchanged) ----
+      // ---- SLO path ----
       if (documentType === "SLOComparison") {
         sendProgress("prepare", "Preparing upload location…");
-        await clearDir(uploadSolDir);
+        await clearDir(uploadSolDir); // ensures dir exists & cleared
 
         let destPath = null;
         if (filePath && fs.existsSync(filePath)) {
@@ -256,10 +266,13 @@ module.exports = function registerAdditionalEvaluationsIPC() {
         };
       }
 
-      // ---- NEW: Social Media (Facebook) ----
+      // ---- Social Media path ----
       if (documentType === "SocialMedia") {
         sendProgress("prepare", "Preparing Social Media upload…");
-        await clearDir(uploadSmDir);
+        // Make sure both dirs exist even if removed mid-session
+        await ensureDir(uploadSmDir);
+        await ensureDir(socialMediaDir);
+        await clearDir(uploadSmDir); // leaves dir present, empties files
 
         let destPath = null;
         if (filePath && fs.existsSync(filePath)) {
@@ -277,38 +290,40 @@ module.exports = function registerAdditionalEvaluationsIPC() {
         }
 
         // Run Python: parse ALL months on first upload; merge on subsequent uploads.
-        // inside ipcAdditionalEvaluations.cjs, SocialMedia branch
+        sendProgress("process", "Processing Social Media workbook…");
+        const appRoot   = app.isPackaged ? process.resourcesPath : app.getAppPath();
+        const scriptPath = path.join(appRoot, "scripts", "social_media_store.py");
+        const args = ["--input", destPath, "--outdir", socialMediaDir, "--platform", "all", "--mode", "merge"];
+        await runPython({
+          scriptPath,
+          args,
+          onStdout: s => sendProgress("python", s.trim()),
+          onStderr: s => sendProgress("python-stderr", s.trim())
+        });
 
-      sendProgress("process", "Processing Social Media workbook…");
-      const appRoot   = app.isPackaged ? process.resourcesPath : app.getAppPath();
-      const scriptPath = path.join(appRoot, "scripts", "social_media_store.py");
-      const args = ["--input", destPath, "--outdir", socialMediaDir, "--platform", "all", "--mode", "merge"];
-      await runPython({ scriptPath, args, onStdout: s => sendProgress("python", s.trim()), onStderr: s => sendProgress("python-stderr", s.trim()) });
+        // Read all outputs if present
+        const out = (name) => path.join(socialMediaDir, `${name}_all.json`);
+        const fbData = fs.existsSync(out("facebook"))   ? JSON.parse(await fs.promises.readFile(out("facebook"),   "utf8")) : [];
+        const igData = fs.existsSync(out("instagram"))  ? JSON.parse(await fs.promises.readFile(out("instagram"),  "utf8")) : [];
+        const liData = fs.existsSync(out("linkedin"))   ? JSON.parse(await fs.promises.readFile(out("linkedin"),   "utf8")) : [];
+        const nlData = fs.existsSync(out("newsletter")) ? JSON.parse(await fs.promises.readFile(out("newsletter"), "utf8")) : [];
+        const pbData = fs.existsSync(out("podbean"))    ? JSON.parse(await fs.promises.readFile(out("podbean"),    "utf8")) : [];
 
-      // Read all outputs if present
-      const out = (name) => path.join(socialMediaDir, `${name}_all.json`);
-      const fbData = fs.existsSync(out("facebook"))   ? JSON.parse(await fs.promises.readFile(out("facebook"),   "utf8")) : [];
-      const igData = fs.existsSync(out("instagram"))  ? JSON.parse(await fs.promises.readFile(out("instagram"),  "utf8")) : [];
-      const liData = fs.existsSync(out("linkedin"))   ? JSON.parse(await fs.promises.readFile(out("linkedin"),   "utf8")) : [];
-      const nlData = fs.existsSync(out("newsletter")) ? JSON.parse(await fs.promises.readFile(out("newsletter"), "utf8")) : [];
-      const pbData = fs.existsSync(out("podbean"))    ? JSON.parse(await fs.promises.readFile(out("podbean"),    "utf8")) : [];
-
-      return {
-        success: true,
-        documentType,
-        uploadedPath: destPath,
-        outputs: {
-          facebook: out("facebook"),
-          instagram: out("instagram"),
-          linkedin:  out("linkedin"),
-          newsletter:out("newsletter"),
-          podbean:   out("podbean"),
-        },
-        data: { facebook: fbData, instagram: igData, linkedin: liData, newsletter: nlData, podbean: pbData },
-        meta: { updated_at: nowIso() }
-      };
-
-      } 
+        return {
+          success: true,
+          documentType,
+          uploadedPath: destPath,
+          outputs: {
+            facebook: out("facebook"),
+            instagram: out("instagram"),
+            linkedin:  out("linkedin"),
+            newsletter:out("newsletter"),
+            podbean:   out("podbean"),
+          },
+          data: { facebook: fbData, instagram: igData, linkedin: liData, newsletter: nlData, podbean: pbData },
+          meta: { updated_at: nowIso() }
+        };
+      }
 
       return { success: false, error: `Unsupported documentType: ${documentType}` };
     } catch (e) {
@@ -369,7 +384,7 @@ module.exports = function registerAdditionalEvaluationsIPC() {
     );
 
     // Sort by (year, month_num, metric) for predictable charting
-    filtered.sort((a,b) => a.year - b.year || a.month_num - b.month_num || String(a.metric).localeCompare(b.metric));
+    filtered.sort((a,b) => (a.year - b.year) || (a.month_num - b.month_num) || String(a.metric).localeCompare(b.metric));
     return { success: true, platform, rows: filtered };
   });
 
@@ -384,6 +399,7 @@ module.exports = function registerAdditionalEvaluationsIPC() {
     return { success: true, platforms, metricsByPlatform };
   });
 
+  // Social Posts store (optional)
   const postsPath = path.join(socialMediaDir, "social_posts.json");
 
   ipcMain.handle("SocialPosts:get", async (_evt, filters = {}) => {
@@ -397,7 +413,7 @@ module.exports = function registerAdditionalEvaluationsIPC() {
         if (!from && !to) return true;
         const t = new Date(iso).getTime();
         return (!from || t >= new Date(from).getTime()) &&
-              (!to   || t <= new Date(to).getTime());
+               (!to   || t <= new Date(to).getTime());
       };
 
       const out = rows.filter(r =>
@@ -412,12 +428,9 @@ module.exports = function registerAdditionalEvaluationsIPC() {
     }
   });
 
-
-
   // ============================
   // Analytics.json read + watch
   // ============================
-
   ipcMain.handle("Additional:read-analytics", async () => {
     try {
       const txt = await fs.promises.readFile(analyticsPath, "utf8");
@@ -441,7 +454,7 @@ module.exports = function registerAdditionalEvaluationsIPC() {
 
   // Existing watcher for analytics.json
   try {
-    fs.watch(dataDir, { persistent: false }, (eventType, filename) => {
+    fs.watch(dataDir, { persistent: false }, (_eventType, filename) => {
       if (filename === "analytics.json") {
         for (const win of BrowserWindow.getAllWindows()) {
           win.webContents.send("Additional:analytics-updated");
@@ -449,10 +462,4 @@ module.exports = function registerAdditionalEvaluationsIPC() {
       }
     });
   } catch {}
-
-
-
-
-
-
 };
