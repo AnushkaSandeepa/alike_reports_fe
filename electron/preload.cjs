@@ -124,4 +124,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.off("Additional:analytics-updated", fn);
   },
 
+  // ===== Social Media READ APIs =====
+  getSocialFilters: (platform) =>
+    ipcRenderer.invoke("SocialMedia:get-filters", { platform }),
+
+  getSocialData: ({ platform, metrics, years, months }) =>
+    ipcRenderer.invoke("SocialMedia:get-data", { platform, metrics, years, months }),
+
+  listSocialPlatforms: () =>
+    ipcRenderer.invoke("SocialMedia:list-platforms"),
+
+
 });

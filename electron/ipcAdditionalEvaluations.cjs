@@ -316,7 +316,78 @@ module.exports = function registerAdditionalEvaluationsIPC() {
     }
   });
 
-  // Read analytics.json (used by charts)
+  // ============================
+  // Social Media READ APIs
+  // ============================
+  const PLATFORM_FILES = {
+    facebook:   "facebook_all.json",
+    instagram:  "instagram_all.json",
+    linkedin:   "linkedin_all.json",
+    newsletter: "newsletter_all.json",
+    podbean:    "podbean_all.json",
+  };
+
+  const loadPlatformData = async (platform) => {
+    const file = PLATFORM_FILES[platform];
+    if (!file) return [];
+    const p = path.join(socialMediaDir, file);
+    try {
+      const txt = await fs.promises.readFile(p, "utf8");
+      return JSON.parse(txt); // array of normalized records
+    } catch (_) {
+      return [];
+    }
+  };
+
+  const loadAllData = async () => {
+    const entries = await Promise.all(
+      Object.keys(PLATFORM_FILES).map(async (pl) => [pl, await loadPlatformData(pl)])
+    );
+    return Object.fromEntries(entries);
+  };
+
+  // Get distinct years/months/metrics for a platform (for checkbox filters)
+  ipcMain.handle("SocialMedia:get-filters", async (_evt, { platform }) => {
+    const rows = await loadPlatformData(platform);
+    const years  = Array.from(new Set(rows.map(r => r.year))).sort((a,b)=>a-b);
+    const months = Array.from(new Set(rows.map(r => r.month_num))).sort((a,b)=>a-b);
+    const metrics = Array.from(new Set(rows.map(r => r.metric))).sort();
+    return { success: true, platform, years, months, metrics };
+  });
+
+  // Get data with optional filters (platform required)
+  ipcMain.handle("SocialMedia:get-data", async (_evt, { platform, metrics, years, months }) => {
+    const rows = await loadPlatformData(platform);
+    const mset = metrics && metrics.length ? new Set(metrics) : null;
+    const yset = years && years.length ? new Set(years) : null;
+    const moset = months && months.length ? new Set(months) : null;
+
+    const filtered = rows.filter(r =>
+      (!mset || mset.has(r.metric)) &&
+      (!yset || yset.has(r.year)) &&
+      (!moset || moset.has(r.month_num))
+    );
+
+    // Sort by (year, month_num, metric) for predictable charting
+    filtered.sort((a,b) => a.year - b.year || a.month_num - b.month_num || String(a.metric).localeCompare(b.metric));
+    return { success: true, platform, rows: filtered };
+  });
+
+  // Convenience: list platforms & metrics available across all files
+  ipcMain.handle("SocialMedia:list-platforms", async () => {
+    const data = await loadAllData();
+    const platforms = Object.keys(data).filter(k => (data[k] || []).length);
+    const metricsByPlatform = {};
+    for (const pl of platforms) {
+      metricsByPlatform[pl] = Array.from(new Set(data[pl].map(r => r.metric))).sort();
+    }
+    return { success: true, platforms, metricsByPlatform };
+  });
+
+  // ============================
+  // Analytics.json read + watch
+  // ============================
+
   ipcMain.handle("Additional:read-analytics", async () => {
     try {
       const txt = await fs.promises.readFile(analyticsPath, "utf8");
@@ -348,4 +419,10 @@ module.exports = function registerAdditionalEvaluationsIPC() {
       }
     });
   } catch {}
+
+
+
+
+
+
 };

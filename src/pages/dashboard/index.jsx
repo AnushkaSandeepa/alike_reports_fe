@@ -8,6 +8,9 @@ import LineBar from './linebarchart';
 import WebsiteDownloadsViz from './websitedownloadchart';
 import PlatformBySocialType from './socialMediaReaches';
 import SLO1Charts from './SLO1Charts';
+import MetricLineChart from './MetricLineChart';
+import FacebookComboChart from './FacebookComboChart';
+import InstagramEfficiencyScatter from './InstagramEfficiencyScatter';
 
 // --- inline hook in the same file ---
 function useWebsiteDownloadsInline() {
@@ -41,6 +44,20 @@ function useWebsiteDownloadsInline() {
 
 const Dashboard = () => {
   const { rows, loading, error } = useWebsiteDownloadsInline();
+
+  const [dataRows, setDataRows] = useState([]);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/social/facebook").then(r=>r.json()),
+      fetch("/api/social/instagram").then(r=>r.json()),
+      fetch("/api/social/linkedin").then(r=>r.json()),
+      fetch("/api/social/newsletter").then(r=>r.json()),
+    ]).then(([fb, ig, li, nl]) => {
+      // merged array – they’re already normalized to the same schema
+      setDataRows([...fb, ...ig, ...li, ...nl]);
+    });
+  }, []);
 
   return (
     <React.Fragment>
@@ -105,12 +122,14 @@ const Dashboard = () => {
 			<WebsiteDownloadsViz rows={rows} />
 		)}
 
-
 		<PlatformBySocialType/>
 
     <SLO1Charts />
 
-          
+    <FacebookComboChart />
+
+    <InstagramEfficiencyScatter/>
+
       </Container>
     </React.Fragment>
   );
