@@ -58,8 +58,10 @@ const EventReportTableContainer = ({
 
 }) => {
   const [allReports, setAllReports] = useState([]);
-  //const tableData = React.useMemo(() => allReports, [allReports]);
-  const tableData = React.useMemo(() => data || [], [data]);
+  useEffect(() => {
+    if (Array.isArray(data)) setAllReports(data);
+  }, [data]);
+  const tableData = React.useMemo(() => allReports, [allReports]);
 
 
   const {
@@ -174,9 +176,8 @@ const EventReportTableContainer = ({
 
 
   useEffect(() => {
-    const off = window.electronAPI.on?.("report-updated", async () => {
-      await fetchReports();
-    }) || (() => {});
+    fetchReports();
+    const off = window.electronAPI.on?.("report-updated", fetchReports) || (() => {});
     return () => off();
   }, []);
 
