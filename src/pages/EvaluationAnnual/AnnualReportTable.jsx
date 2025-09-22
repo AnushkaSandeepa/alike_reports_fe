@@ -12,6 +12,7 @@ function EventReportGenerate() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
 
+
   // fetch all saved period reports
   const fetchPeriodReports = useCallback(async () => {
     try {
@@ -78,6 +79,12 @@ function EventReportGenerate() {
         id: "used_files",
         accessor: (row) => (row.included_report_ids || []).join(", "),
         width: 200,
+      },
+      {
+        Header: "Funding Body",
+        id: "fundingBody",
+        accessor: (row) => row?.filters?.fundingBody ?? "", // reads nested value
+        width: 140,
       },
       {
         Header: "View",

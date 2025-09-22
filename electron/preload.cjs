@@ -56,7 +56,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Period-based (unchanged here)
   getPeriodReports: () => ipcRenderer.invoke("get-period-reports"),
-  generatePeriodReport: ({ start, end }) => ipcRenderer.invoke("report_generator_period", { start, end }),
+  generatePeriodReport: (payload) => ipcRenderer.invoke('report_generator_period', payload),
   deletePeriodReport: (id) => ipcRenderer.invoke("delete-period-report", id),
 
   on: (channel, handler) => {

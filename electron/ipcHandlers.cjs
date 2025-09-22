@@ -155,9 +155,9 @@ module.exports = (ipcMain) => {
         const uploadsBase = path.join(app.getPath("userData"), "UploadFile");
         await fs.promises.mkdir(uploadsBase, { recursive: true });
 
-        // Put DOC files in /doc, DOH files in /doh, others in /general
+        // Put DOC files in /DOC, DOH files in /DOH, others in /general
         const fb = String(fundingBody || "").toLowerCase();
-        const subfolder = fb === "doc" ? "doc" : fb === "doh" ? "doh" : "general";
+        const subfolder = fb === "DOC" ? "DOC" : fb === "DOH" ? "DOH" : "general";
         const spreadsheetDir = path.join(uploadsBase, subfolder);
         await fs.promises.mkdir(spreadsheetDir, { recursive: true });
 

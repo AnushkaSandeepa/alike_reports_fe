@@ -116,8 +116,8 @@ const EventReportTableContainer = ({
   };
   const FUNDINGBODY = [
     { value: "",    label: "Select Funding Body" },
-    { value: "doc", label: "Department of Communities (DOC)" },
-    { value: "doh", label: "Department of Health (DOH)" },
+    { value: "DOC", label: "Department of Communities (DOC)" },
+    { value: "DOH", label: "Department of Health (DOH)" },
   ];
 
   const labelToValue = (label) => {

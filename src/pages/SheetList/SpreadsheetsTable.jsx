@@ -5,6 +5,11 @@ import { FaTrash, FaEye } from "react-icons/fa";
 
 function EventSheetsTable() {
   const [sheetData, setSheetData] = useState([]);
+
+  const FUNDING_LABEL = {
+    DOC: "DOC",
+    DOH: "DOH",
+  };
   
   console.log("Sheet Data:", sheetData);
   // Fetch metadata on mount
@@ -20,7 +25,8 @@ function EventSheetsTable() {
           sheet_type: item.programType,
           programDate: item.programDate.slice(0, 10),
           status: item.filesStatus,
-          fullPath: item.storedAt
+          fullPath: item.storedAt,
+          fundingBody: item.fundingBody || ""
         }));
         setSheetData(formatted);
       } else {
@@ -89,6 +95,12 @@ function EventSheetsTable() {
       {
         Header: "Promgram Date",
         accessor: "programDate",
+        minWidth: 150,
+        maxWidth: 250
+      },
+      {
+        Header: "Funding Body",
+        accessor: "fundingBody",
         minWidth: 150,
         maxWidth: 250
       },

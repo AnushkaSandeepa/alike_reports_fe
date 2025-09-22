@@ -47,7 +47,7 @@ module.exports = function () {
         programType,
         evaluationStartDate,
         evaluationEndDate,
-        fundingBody, // code-only: "doc" | "doh" | ""
+        fundingBody, // code-only: "DOC" | "DOH" | ""
       }
     ) => {
       return new Promise((resolve) => {
@@ -197,7 +197,7 @@ module.exports = function () {
 
               // Store code-only funding body (no label)
               if (typeof fundingBody === "string") {
-                parsed.fundingBody = fundingBody; // e.g., "doc" | "doh" | ""
+                parsed.fundingBody = fundingBody; // e.g., "DOC" | "DOH" | ""
               }
 
               // Ensure key metadata exists even if Python omitted it

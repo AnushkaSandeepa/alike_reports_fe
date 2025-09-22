@@ -91,8 +91,16 @@ const AnnualReportTableContainer = ({
   const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(null); // {id, stage, percent}
+  const [fundingBody, setFundingBody] = useState("");
+
 
   const defaultColumns = useDefaultPeriodColumns();
+
+  const FUNDINGBODY = [
+    { value: "",    label: "Select Funding Body" },
+    { value: "DOC", label: "Department of Communities (DOC)" },
+    { value: "DOH", label: "Department of Health (DOH)" },
+  ];
 
   // Inject row-level action renderers without mutating server data
   const tableData = useMemo(
@@ -149,6 +157,10 @@ const AnnualReportTableContainer = ({
     if (!range || range.length < 2 || !range[0] || !range[1]) {
       return showError("Please select a start and end date.");
     }
+    if (!fundingBody) {
+      return showError("Please select a funding body.");
+    }
+
     const start = fmtISO(range[0]);
     const end = fmtISO(range[1]);
 
@@ -156,7 +168,7 @@ const AnnualReportTableContainer = ({
       setIsGenerating(true);
       setProgress({ id: null, stage: "starting", percent: 5 });
 
-      const res = await window.electronAPI.generatePeriodReport({ start, end });
+      const res = await window.electronAPI.generatePeriodReport({ start, end, fundingBody });
       if (!res?.success) {
         throw new Error(res?.error || "Period report generation failed.");
       }
@@ -274,28 +286,50 @@ const AnnualReportTableContainer = ({
         </CardTitle>
 
         <Row className="mb-2 g-3">
-          <h6 className="card-title">Select Date Range</h6>
-          <FormGroup className="mb-0">
-            <InputGroup>
-              <Flatpickr
-                className="form-control d-block date-buttion-alike"
-                placeholder="yyyy-mm-dd to yyyy-mm-dd"
-                options={{ mode: "range", dateFormat: "Y-m-d" }}
-                onChange={(dates) => setRange(dates)}
-              />
-            </InputGroup>
-          </FormGroup>
+          <Col md={4}>
+              <h6 className="card-title">Select Date Range</h6>
+             <FormGroup className="mb-0">
+              <InputGroup>
+                <Flatpickr
+                  className="form-control d-block date-buttion-alike"
+                  placeholder="yyyy-mm-dd to yyyy-mm-dd"
+                  options={{ mode: "range", dateFormat: "Y-m-d" }}
+                  onChange={(dates) => setRange(dates)}
+                />
+              </InputGroup>
+            </FormGroup>
+          </Col>
+         
+
+          {/* NEW: Funding Body */}
+          <Col md={4}>
+            <h6 className="mb-2">Funding Body</h6>
+            <select
+              className="form-select"
+              value={fundingBody}
+              onChange={(e) => setFundingBody(e.target.value)}
+            >
+              {FUNDINGBODY.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </Col>
 
           <div className="mt-3">
             <button
               className="btn-alike"
               onClick={handleGenerate}
-              disabled={isGenerating || !(range && range.length === 2 && range[0] && range[1])}
+              disabled={
+                isGenerating ||
+                !(range && range.length === 2 && range[0] && range[1]) ||
+                !fundingBody // require a selection
+              }
             >
               {isGenerating ? "Generating..." : "Generate"}
             </button>
           </div>
         </Row>
+
       </Card>
 
       <Card className="p-3">

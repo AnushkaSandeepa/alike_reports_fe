@@ -41,7 +41,7 @@ const LeftSidebar = ({ isCondensed, leftbarDark }) => {
 	const menuNodeRef = useRef(null);
 
 	/**
-	 * Handle the click anywhere in doc
+	 * Handle the click anywhere in DOC
 	 */
 	const handleOtherClick = (e) => {
 		if (menuNodeRef && menuNodeRef.current && menuNodeRef.current.contains(e.target))
