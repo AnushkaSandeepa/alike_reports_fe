@@ -107,6 +107,17 @@ const Dashboard = () => {
           </Col>
         </Row>
 
+      <PlatformBySocialType/>
+
+      <FacebookComboChart />
+
+      <InstagramEfficiencyScatter/>
+
+      <LinkedInComboChart />
+
+      <NewsletterComboChart/>
+
+
         <Card className="mt-4">
           <CardBody>
             <CardTitle>Facebook Reach</CardTitle>
@@ -124,17 +135,11 @@ const Dashboard = () => {
 			<WebsiteDownloadsViz rows={rows} />
 		)}
 
-		<PlatformBySocialType/>
+		
 
     <SLO1Charts />
 
-    <FacebookComboChart />
-
-    <InstagramEfficiencyScatter/>
-
-    <LinkedInComboChart />
-
-    <NewsletterComboChart/>
+    
 
       </Container>
     </React.Fragment>
