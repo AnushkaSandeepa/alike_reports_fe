@@ -156,10 +156,14 @@ module.exports = (ipcMain) => {
         await fs.promises.mkdir(uploadsBase, { recursive: true });
 
         // Put DOC files in /DOC, DOH files in /DOH, others in /general
-        const fb = String(fundingBody || "").toLowerCase();
-        const subfolder = fb === "DOC" ? "DOC" : fb === "DOH" ? "DOH" : "general";
+        const fbNorm = String(fundingBody || "").trim().toLowerCase();
+        let subfolder = "general";
+        if (fbNorm === "doc") subfolder = "DOC";
+        else if (fbNorm === "doh") subfolder = "DOH";
+
         const spreadsheetDir = path.join(uploadsBase, subfolder);
         await fs.promises.mkdir(spreadsheetDir, { recursive: true });
+
 
 
         const id = getNextId(path.join(documentsDir, "last_id.txt"));
