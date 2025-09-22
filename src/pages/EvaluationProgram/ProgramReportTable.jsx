@@ -90,6 +90,7 @@ const handleToggleStatus = useCallback(async (reportId, currentStatus) => {
       { Header: 'Used Spreadsheet Name', accessor: 'spreadsheet_name' },
       { Header: 'Used Sheetsheet ID', accessor: 'spreadsheet_id' },
       { Header: 'Program Type', accessor: 'program_type', width: 200 },
+      {Header: 'Funding Body', accessor: 'fundingBody', width: 180 },
       {
         Header: "Evaluated For",
         id: "evaluation_range",
@@ -100,11 +101,11 @@ const handleToggleStatus = useCallback(async (reportId, currentStatus) => {
         },
         width: 200,
       },
-      {
-        Header: 'Satisfaction Rate (%)',
-        accessor: (row) => row?.confidence_data?.satisfaction_rate ?? "—",
-        width: 150,
-      } ,
+      // {
+      //   Header: 'Satisfaction Rate (%)',
+      //   accessor: (row) => row?.confidence_data?.satisfaction_rate ?? "—",
+      //   width: 150,
+      // } ,
 
       {
         Header: 'Status',

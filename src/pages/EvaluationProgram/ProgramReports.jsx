@@ -114,6 +114,16 @@ const EventReportTableContainer = ({
     const page = event.target.value ? Number(event.target.value) - 1 : 0;
     gotoPage(page);
   };
+  const FUNDINGBODY = [
+    { value: "",    label: "Select Funding Body" },
+    { value: "doc", label: "Department of Communities (DOC)" },
+    { value: "doh", label: "Department of Health (DOH)" },
+  ];
+
+  const labelToValue = (label) => {
+    const hit = FUNDINGBODY.find(o => o.label === label);
+    return hit ? hit.value : label; // if already a code, this returns the code as-is
+  };
 
   const [programType, setProgramType] = useState("");
   const [spreadsheet, setSpreadsheet] = useState("");
@@ -121,6 +131,8 @@ const EventReportTableContainer = ({
   const [loadingSheets, setLoadingSheets] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [dateRange, setDateRange] = useState([]);
+  const [fundingBody, setFundingBody] = useState("");
+
 
   const fmtISO = (d) => {
     if (!d) return ""; // or return null / a default string
@@ -137,13 +149,37 @@ const EventReportTableContainer = ({
     return new Date(y, m - 1, d); // local midnight, avoids TZ shifts
   };
 
+  // Map any incoming value (label or code, any case) to a valid code in FUNDINGBODY
+  const coerceFundingCode = (v) => {
+    if (v == null) return "";
+    const s = String(v).trim();
+
+    if (!s) return "";
+
+    // exact value match (case-insensitive)
+    const byValue = FUNDINGBODY.find(o => o.value.toLowerCase() === s.toLowerCase());
+    if (byValue) return byValue.value;
+
+    // exact label match (case-insensitive)
+    const byLabel = FUNDINGBODY.find(o => o.label.toLowerCase() === s.toLowerCase());
+    if (byLabel) return byLabel.value;
+
+    // partial label match (fallback)
+    const partial = FUNDINGBODY.find(o => o.label.toLowerCase().includes(s.toLowerCase()));
+    if (partial) return partial.value;
+
+    return "";
+  };
+
+
 
   useEffect(() => {
-    const off = window.electronAPI.on?.("report-updated", ({ reportId, reportStatus }) => {
-      setReports(prev => prev.map(r => r.reportId === reportId ? { ...r, reportStatus } : r));
+    const off = window.electronAPI.on?.("report-updated", async () => {
+      await fetchReports();
     }) || (() => {});
     return () => off();
   }, []);
+
 
   const fetchReports = async () => {
     const result = await window.electronAPI.getReports();
@@ -154,6 +190,7 @@ const EventReportTableContainer = ({
     const fetchSheets = async () => {
       setLoadingSheets(true);
       const result = await window.electronAPI.getUploadedSheets();
+      console.log("Fetched sheets:", result);
       if (result.success) {
         setAllSheets(result.data);
       } else {
@@ -209,6 +246,7 @@ const EventReportTableContainer = ({
         programType,
         evaluationStartDate,
         evaluationEndDate,
+        fundingBody,
       });
 
       if (!result?.success) {
@@ -249,6 +287,7 @@ const EventReportTableContainer = ({
                 setProgramType(e.target.value);
                 setSpreadsheet("");
                 setDateRange([]);
+                setFundingBody("");
               }}
               className="form-select"
             >
@@ -264,20 +303,25 @@ const EventReportTableContainer = ({
             <h6>Select Program's Spreadsheet</h6>
             <select
               value={spreadsheet}
-              onChange={(e) => {
-                const value = e.target.value;
-                setSpreadsheet(value);
+             onChange={(e) => {
+              const value = e.target.value;
+              setSpreadsheet(value);
+              
 
-                const sheet = filteredSheets.find(s => s.storedAt === value);
-                if (sheet) {
-                  const start = parseYMD(sheet.includedRange?.start) || parseYMD(sheet.programDate);
-                  const end   = parseYMD(sheet.includedRange?.end)   || parseYMD(sheet.programDate);
-                  if (start && end) setDateRange([start, end]);     // 👈 pre-fill picker
-                  else setDateRange([]);
-                } else {
-                  setDateRange([]);
-                }
-              }}
+              const sheet = filteredSheets.find(s => s.storedAt === value);
+              if (sheet) {
+                const start = parseYMD(sheet.includedRange?.start) || parseYMD(sheet.programDate);
+                const end   = parseYMD(sheet.includedRange?.end)   || parseYMD(sheet.programDate);
+                if (start && end) setDateRange([start, end]); else setDateRange([]);
+
+                  setFundingBody(coerceFundingCode(sheet.fundingBody || ""));
+
+              } else {
+                setDateRange([]);
+                setFundingBody("");
+              }
+            }}
+
               className="form-select"
               disabled={!programType || loadingSheets}
             >
@@ -292,6 +336,22 @@ const EventReportTableContainer = ({
               ))}
             </select>
           </Col>
+
+          <Col md={4}>
+            <h6>Funding Body</h6>
+            <select
+              className="form-select"
+              value={fundingBody}
+              onChange={(e) => setFundingBody(e.target.value)}
+              disabdisabled={!programType || loadingSheets}led
+            >
+              {FUNDINGBODY.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </Col>
+
+
 
           <Col md={4} title="Select the Date range you want to extract from file to generate report.">
             <h6>Select Required Date range to Extract 

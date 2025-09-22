@@ -133,6 +133,7 @@ def main():
     p.add_argument("report_id")
     p.add_argument("--evaluationStart", dest="eval_start")
     p.add_argument("--evaluationEnd",   dest="eval_end")
+    p.add_argument("--fundingBody",     dest="funding_body")   # <-- NEW (optional)
     args = p.parse_args()
 
     df = pd.read_excel(args.spreadsheet_path)
@@ -160,6 +161,7 @@ def main():
                 "generated_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
                 "evaluation_start": args.eval_start,
                 "evaluation_end": args.eval_end,
+                "fundingBody": args.funding_body or "",  # echo code if provided
             }, ensure_ascii=False))
             return
 
@@ -182,10 +184,11 @@ def main():
                 "generated_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
                 "evaluation_start": args.eval_start,
                 "evaluation_end": args.eval_end,
+                "fundingBody": args.funding_body or "",
         }, ensure_ascii=False))
         return
 
-    # ---------- Satisfaction counts (string-based, no numeric mapping) ----------
+    # ---------- Satisfaction counts ----------
     satisfaction_counts = {k: 0 for k in AGREEMENT_LABELS}
     for c in satisfaction_cols:
         if c not in df: continue
@@ -204,16 +207,14 @@ def main():
     numerator = satisfaction_counts["Strongly Agree"] + satisfaction_counts["Agree"]
     denominator = sum(satisfaction_counts[l] for l in valid_labels)
     sat_pct = round((numerator / denominator) * 100, 2) if denominator else 0.0
-    # ---------------------------------------------------------------------------
 
-    # ---------- Confidence (pre/post) still uses numeric mapping ----------
+    # ---------- Confidence pre/post ----------
     df_pre  = to_numeric_map(df, pre_cols,  "confidence")
     df_post = to_numeric_map(df, post_cols, "confidence")
 
     pre_pct  = round(safe_float(df_pre[pre_cols].mean().mean()  / 4 * 100), 2) if pre_cols else 0.0
     post_pct = round(safe_float(df_post[post_cols].mean().mean() / 4 * 100), 2) if post_cols else 0.0
     inc_pct  = round(post_pct - pre_pct, 2)
-    # ---------------------------------------------------------------------
 
     feedback = []
     if "Additional feedback" in df.columns:
@@ -236,6 +237,7 @@ def main():
         "generated_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
         "evaluation_start": args.eval_start,
         "evaluation_end": args.eval_end,
+        "fundingBody": args.funding_body or "",  # include code-only
     }
     if feedback:
         result["additional_feedback"] = feedback

@@ -62,8 +62,9 @@ def find_event_date_series(df: pd.DataFrame):
     return None
 
 def calculate_satisfaction_scores(file_path, spreadsheet_id, program_type, report_id,
-                                  evaluation_start=None, evaluation_end=None):
-    # Read Excel with native types for dates; we'll string-normalize later where needed
+                                  evaluation_start=None, evaluation_end=None,
+                                  funding_body=None):
+    # Read Excel with native types for dates
     df_raw = pd.read_excel(file_path)
 
     # Optional range filter by event date
@@ -92,6 +93,7 @@ def calculate_satisfaction_scores(file_path, spreadsheet_id, program_type, repor
             "generated_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
             "evaluation_start": evaluation_start,
             "evaluation_end": evaluation_end,
+            "fundingBody": funding_body or "",
         }, ensure_ascii=False))
         return
 
@@ -118,13 +120,14 @@ def calculate_satisfaction_scores(file_path, spreadsheet_id, program_type, repor
             "generated_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
             "evaluation_start": evaluation_start,
             "evaluation_end": evaluation_end,
+            "fundingBody": funding_body or "",
         }, ensure_ascii=False))
         return
 
     # All satisfaction columns from that point on (only those that contain labels)
     satisfaction_cols = [c for c in df.columns[first_col_idx:] if col_is_satisfaction(c)]
 
-    # Aggregate counts across all satisfaction columns (case-insensitive, canonicalized)
+    # Aggregate counts across all satisfaction columns
     satisfaction_counts = {k: 0 for k in SAT_LABELS_DISPLAY}
     for c in satisfaction_cols:
         vc = df[c].map(canonical_label).value_counts()
@@ -132,7 +135,7 @@ def calculate_satisfaction_scores(file_path, spreadsheet_id, program_type, repor
             if label in satisfaction_counts:
                 satisfaction_counts[label] += int(count)
 
-    # Satisfaction = (Agree + Strongly Agree) / (all valid responses excl. "Not Applicable")
+    # Satisfaction = (Agree + Strongly Agree) / (valid responses excl. N/A)
     valid_labels = [
         "Strongly Agree",
         "Agree",
@@ -158,6 +161,7 @@ def calculate_satisfaction_scores(file_path, spreadsheet_id, program_type, repor
         "generated_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
         "evaluation_start": evaluation_start,
         "evaluation_end": evaluation_end,
+        "fundingBody": funding_body or "",   # include code-only
     }
 
     # Optional: collect "Additional feedback" (case-insensitive match, 2+ words)
@@ -180,6 +184,7 @@ def main():
     parser.add_argument("report_id")
     parser.add_argument("--evaluationStart", dest="eval_start")
     parser.add_argument("--evaluationEnd", dest="eval_end")
+    parser.add_argument("--fundingBody", dest="funding_body")   # <-- NEW (optional)
     args = parser.parse_args()
 
     calculate_satisfaction_scores(
@@ -189,6 +194,7 @@ def main():
         report_id=args.report_id,
         evaluation_start=args.eval_start,
         evaluation_end=args.eval_end,
+        funding_body=args.funding_body,
     )
 
 if __name__ == "__main__":

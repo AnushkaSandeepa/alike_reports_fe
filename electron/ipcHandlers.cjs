@@ -31,7 +31,7 @@ function extractSheetMetadata(filePath) {
     const workbook = XLSX.readFile(filePath);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const jsonData = XLSX.utils.sheet_to_json(sheet, { raw: true });
-
+ 
     if (!jsonData.length) {
       return {
         success: false,
