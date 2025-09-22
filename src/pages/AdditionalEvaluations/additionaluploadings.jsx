@@ -4,22 +4,32 @@ import { FaUpload, FaTimes } from "react-icons/fa";
 import ExcelIcon from "../../assets/images/File/Excel.png";
 import Swal from "sweetalert2";
 
-
+/** ---- Config ---- */
 const DOCUMENT_TYPES = [
   { value: "", label: "Select type" },
+  { value: "SocialMedia", label: "Social Media" },
   { value: "SLOComparison", label: "SLO 1 Comparison" },
-  { value: "PIFInsights", label: "PIF Insights" }, // (future)
+  { value: "PIFInsights", label: "PIF Insights" }, // future
 ];
 
-const ALLOWED_EXTS = [".xlsx", ".xls", ".csv"]; // extend to .pdf/.docx if needed
-const MAX_BYTES = 10 * 1024 * 1024;
+// Extensions and common MIME types (Windows may report CSV as text/plain)
+const ALLOWED_EXTS = [".xlsx", ".xls", ".csv"];
+const ALLOWED_MIME = new Set([
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+  "text/csv",
+  "application/csv",
+  "text/plain", // CSV sometimes
+]);
+
+const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 const formatBytes = (n) => {
   if (n == null) return "";
-  const units = ["B","KB","MB","GB"];
+  const units = ["B", "KB", "MB", "GB"];
   let v = n, i = 0;
-  while (v >= 1024 && i < units.length-1) { v/=1024; i++; }
-  return `${v.toFixed(v < 10 && i>0 ? 1 : 0)} ${units[i]}`;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
 };
 
 export default function AdditionalUploadings({ onUpload }) {
@@ -28,51 +38,100 @@ export default function AdditionalUploadings({ onUpload }) {
   const [error, setError] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [dragOver, setDragOver] = useState(false);
 
   const fileInputRef = useRef(null);
+  const aliveRef = useRef(true);
+  const confirmingRef = useRef(false);
+
   const uploadDateLabel = useMemo(() => new Date().toLocaleDateString(), []);
 
   useEffect(() => {
+    aliveRef.current = true;
+    return () => { aliveRef.current = false; };
+  }, []);
+
+  // (Optional) reflect python-side progress in the UI
+  useEffect(() => {
     if (!window?.electronAPI?.onAdditionalEvaluationsProgress) return;
-    const off = window.electronAPI.onAdditionalEvaluationsProgress((p) => {
-      // Optionally reflect python/progress to UI
-      // console.log("AE:", p);
+    const off = window.electronAPI.onAdditionalEvaluationsProgress((pct) => {
+      if (!aliveRef.current) return;
+      // Expect 0–100; clamp just in case
+      const v = Math.max(0, Math.min(100, Number(pct)));
+      setProgress(v);
     });
     return () => off?.();
   }, []);
 
+  const hasAllowedExt = (name) => {
+    const lower = (name || "").toLowerCase();
+    return ALLOWED_EXTS.some((ext) => lower.endsWith(ext));
+  };
+
   const validateFile = (f) => {
     if (!f) return "Please choose a file.";
-    const name = f.name.toLowerCase();
-    const okExt = ALLOWED_EXTS.some((ext) => name.endsWith(ext));
-    if (!okExt) return `Unsupported file type. Allowed: ${ALLOWED_EXTS.join(", ")}`;
-    if (f.size > MAX_BYTES) return `File is too large (${formatBytes(f.size)}). Max ${formatBytes(MAX_BYTES)}.`;
+    if (!hasAllowedExt(f.name)) {
+      return `Unsupported file type. Allowed: ${ALLOWED_EXTS.join(", ")}`;
+    }
+    // MIME can be empty in some environments; we fallback to extension
+    if (f.type && !ALLOWED_MIME.has(f.type) && !hasAllowedExt(f.name)) {
+      return `Unsupported file type. Allowed: ${ALLOWED_EXTS.join(", ")}`;
+    }
+    if (f.size > MAX_BYTES) {
+      return `File is too large (${formatBytes(f.size)}). Max ${formatBytes(MAX_BYTES)}.`;
+    }
     return "";
   };
 
-  const handleChooseClick = () => fileInputRef.current?.click();
+  const handleChooseClick = () => {
+    if (isUploading) return;
+    fileInputRef.current?.click();
+  };
+
   const handleFilePicked = (e) => {
     const f = e.target.files?.[0];
     const err = validateFile(f);
     setError(err);
     setFile(err ? null : f || null);
   };
+
   const handleDrop = (e) => {
-    e.preventDefault(); e.stopPropagation();
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    if (isUploading) return;
     const f = e.dataTransfer.files?.[0];
     const err = validateFile(f);
     setError(err);
     setFile(err ? null : f || null);
   };
-  const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); };
 
-  const canUpload = documentType && file && !isUploading && !error;
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!dragOver) setDragOver(true);
+  };
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dragOver) setDragOver(false);
+  };
+
+  const canUpload = documentType && !!file && !isUploading && !error;
 
   const simulateProgress = useCallback((cbDone) => {
-    setProgress(0);
+    // Only used if we don't get real progress events
     let p = 0;
-    const id = setInterval(() => { p = Math.min(95, p + Math.random()*12); setProgress(p); }, 150);
-    const finish = () => { clearInterval(id); setProgress(100); cbDone?.(); };
+    setProgress(0);
+    const id = setInterval(() => {
+      p = Math.min(95, p + Math.random() * 10 + 2);
+      if (aliveRef.current) setProgress(p);
+    }, 180);
+    const finish = () => {
+      clearInterval(id);
+      if (aliveRef.current) { setProgress(100); }
+      cbDone?.();
+    };
     return finish;
   }, []);
 
@@ -80,27 +139,23 @@ export default function AdditionalUploadings({ onUpload }) {
     setFile(null);
     setError("");
     setProgress(0);
+    setDragOver(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-
   const handleUpload = async () => {
-    // basic validation up-front
+    if (isUploading || confirmingRef.current) return;
+
     setError("");
     if (!documentType) return setError("Please select a document type.");
     const fv = validateFile(file);
     if (fv) return setError(fv);
 
-    // 1) Ask for confirmation BEFORE we start uploading/progress
+    confirmingRef.current = true;
     const confirm = await Swal.fire({
       icon: "question",
       title: "Upload & Generate Report?",
-      html: `
-        <div style="text-align:left">
-          <b>Type:</b> ${documentType}<br/>
-          <b>File:</b> ${file?.name || "—"}
-        </div>
-      `,
+      text: `Type: ${documentType} | File: ${file?.name || "—"}`,
       confirmButtonText: "Yes, upload",
       cancelButtonText: "Cancel",
       showCancelButton: true,
@@ -108,39 +163,40 @@ export default function AdditionalUploadings({ onUpload }) {
       confirmButtonColor: "#164728",
       cancelButtonColor: "#6c757d",
     });
+    confirmingRef.current = false;
 
     if (!confirm.isConfirmed) {
-      // user cancelled -> optional notice, then reset the fields
       await Swal.fire({
         icon: "info",
         title: "Cancelled",
         text: "Upload was cancelled.",
         confirmButtonColor: "#164728",
       });
-      resetState(); // <-- reset everything after user clicks the modal
+      resetState();
       return;
     }
 
-    // 2) Proceed with upload
     setIsUploading(true);
-    const stopSim = simulateProgress();
-    let res;
+    // If the electron side emits progress, great; otherwise simulate.
+    const hasProgressEvents = !!window?.electronAPI?.onAdditionalEvaluationsProgress;
+    const stopSim = hasProgressEvents ? () => {} : simulateProgress();
 
     try {
+      let res;
       if (window?.electronAPI?.uploadAdditionalDataAuto) {
         res = await window.electronAPI.uploadAdditionalDataAuto(documentType, file);
         if (!res?.success) throw new Error(res?.error || "Processing failed");
         onUpload?.(res);
       } else if (window?.electronAPI?.uploadAdditionalData) {
+        // Fallback that uses path (works in Electron only)
         res = await window.electronAPI.uploadAdditionalData(documentType, file.path || file.name);
         if (!res?.success) throw new Error(res?.error || "Processing failed");
         onUpload?.(res);
       } else {
-        // web/demo fallback
+        // Web/demo fallback
         await new Promise((r) => setTimeout(r, 1200));
       }
 
-      // 3) Success modal; reset after user clicks OK
       await Swal.fire({
         icon: "success",
         title: "Upload Complete!",
@@ -148,27 +204,26 @@ export default function AdditionalUploadings({ onUpload }) {
         confirmButtonColor: "#164728",
       });
 
-      resetState(); // <-- reset all fields after clicking the success modal
-      return res;   // optional
+      resetState();
+      return res;
     } catch (e) {
       console.error(e);
-      setError(e.message || "Upload failed. Please try again.");
+      const msg = e?.message || "Upload failed. Please try again.";
+      setError(msg);
 
-      // Error modal; also reset after they dismiss it (your call)
       await Swal.fire({
         icon: "error",
         title: "Upload Failed",
-        text: e.message || "Something went wrong. Please try again.",
+        text: msg,
         confirmButtonColor: "#dc3545",
       });
 
-      resetState(); // optional: reset on error too
+      resetState();
     } finally {
-      stopSim();
-      setIsUploading(false);
+      stopSim?.();
+      if (aliveRef.current) setIsUploading(false);
     }
-  }
-  
+  };
 
   return (
     <Card>
@@ -186,6 +241,7 @@ export default function AdditionalUploadings({ onUpload }) {
                 className="form-select"
                 onChange={(e) => setDocumentType(e.target.value)}
                 aria-label="Select document type"
+                disabled={isUploading}
                 required
               >
                 {DOCUMENT_TYPES.map((pt) => (
@@ -196,7 +252,13 @@ export default function AdditionalUploadings({ onUpload }) {
 
             <Col md={4}>
               <h6 className="card-title">Upload Date</h6>
-              <input type="text" className="form-control" value={uploadDateLabel} readOnly aria-label="Upload date" />
+              <input
+                type="text"
+                className="form-control"
+                value={uploadDateLabel}
+                readOnly
+                aria-label="Upload date"
+              />
               <small className="text-muted">Auto-filled as today</small>
             </Col>
 
@@ -220,23 +282,28 @@ export default function AdditionalUploadings({ onUpload }) {
                 onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && handleChooseClick()}
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
                 style={{
-                  border: "2px dashed #6c757d",
+                  border: `2px dashed ${dragOver ? "#164728ff" : "#6c757d"}`,
                   borderRadius: 8,
                   padding: 30,
                   textAlign: "center",
-                  cursor: "pointer",
+                  cursor: isUploading ? "not-allowed" : "pointer",
                   color: "#164728ff",
-                  backgroundColor: "#e7f3ebff",
+                  backgroundColor: dragOver ? "#dff2e6" : "#e7f3ebff",
                   outline: "none",
+                  transition: "background-color 120ms ease, border-color 120ms ease",
                 }}
                 title="Click or drop a spreadsheet"
                 aria-label="Click or drag and drop to select a spreadsheet"
+                aria-disabled={isUploading}
               >
-                <div style={{ fontSize: 50, marginBottom: 10 }}>
+                <div style={{ fontSize: 50, marginBottom: 10, opacity: isUploading ? 0.6 : 1 }}>
                   <FaUpload />
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 600 }}>Click or Drop File</div>
+                <div style={{ fontSize: 16, fontWeight: 600 }}>
+                  {isUploading ? "Uploading…" : "Click or Drop File"}
+                </div>
                 <div style={{ fontSize: 12, color: "#164728ff", marginTop: 5 }}>
                   Allowed: {ALLOWED_EXTS.join(", ")} • Max {formatBytes(MAX_BYTES)}
                 </div>
@@ -254,7 +321,14 @@ export default function AdditionalUploadings({ onUpload }) {
                       <small className="text-muted">{formatBytes(file.size)}</small>
                     </div>
                   </div>
-                  <Button type="button" color="link" className="text-danger p-0" onClick={() => setFile(null)} aria-label="Remove file">
+                  <Button
+                    type="button"
+                    color="link"
+                    className="text-danger p-0"
+                    onClick={() => setFile(null)}
+                    aria-label="Remove file"
+                    disabled={isUploading}
+                  >
                     <FaTimes size={18} />
                   </Button>
                 </div>
@@ -263,14 +337,20 @@ export default function AdditionalUploadings({ onUpload }) {
               {error && <div className="text-danger mt-2" role="alert">{error}</div>}
 
               {isUploading && (
-                <div className="mt-3">
+                <div className="mt-3" aria-live="polite">
                   <Progress value={progress} />
                   <small className="text-muted">Uploading… {Math.round(progress)}%</small>
                 </div>
               )}
 
               <div className="mt-3">
-                <Button type="button" className="btn btn-alike" color="success" onClick={handleUpload} disabled={!canUpload}>
+                <Button
+                  type="button"
+                  className="btn btn-alike"
+                  color="success"
+                  onClick={handleUpload}
+                  disabled={!canUpload}
+                >
                   {isUploading ? (<><Spinner size="sm" className="me-2" /> Uploading…</>) : "Upload File & Generate Report"}
                 </Button>
               </div>

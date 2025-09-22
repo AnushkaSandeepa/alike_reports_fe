@@ -8,10 +8,12 @@ module.exports = function registerAdditionalEvaluationsIPC() {
   // ===== Directories =====
   const dataDir = path.join(app.getPath("userData"), "Documents");              // JSON + WebsiteDownloads DB
   const uploadSolDir = path.join(app.getPath("userData"), "UploadFile", "SOL"); // keep only ONE SLO file here
+  const uploadSmDir  = path.join(app.getPath("userData"), "UploadFile", "SocialMedia"); // NEW
+  const socialMediaDir = path.join(dataDir, "social_media"); // NEW: where Social Media JSONs will live
   const wdDbPath = path.join(dataDir, "website_downloads_db.json");
   const analyticsPath = path.join(dataDir, "analytics.json");
 
-  for (const p of [dataDir, uploadSolDir]) {
+  for (const p of [dataDir, uploadSolDir, uploadSmDir, socialMediaDir]) {
     if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
   }
   if (!fs.existsSync(wdDbPath)) fs.writeFileSync(wdDbPath, "[]", "utf8");
@@ -68,7 +70,7 @@ module.exports = function registerAdditionalEvaluationsIPC() {
   };
 
   // =========================================================================================
-  // WebsiteDownloads namespace (kept intact)
+  // WebsiteDownloads namespace (unchanged)
   // =========================================================================================
   ipcMain.handle("WebsiteDownloads:get-all", async () => {
     return await readJson(wdDbPath);
@@ -154,7 +156,7 @@ module.exports = function registerAdditionalEvaluationsIPC() {
   });
 
   // =========================================================================================
-  // AdditionalEvaluations namespace — SLO upload -> Python -> analytics.json (single)
+  // AdditionalEvaluations namespace — SLO upload (existing) + SocialMedia (NEW)
   // =========================================================================================
   const getPythonExe = () => {
     if (process.env.PYTHON_PATH && fs.existsSync(process.env.PYTHON_PATH)) return process.env.PYTHON_PATH;
@@ -184,7 +186,6 @@ module.exports = function registerAdditionalEvaluationsIPC() {
       });
     });
 
-
   ipcMain.handle("AdditionalEvaluations:upload", async (_evt, payload = {}) => {
     try {
       const documentType = (payload.documentType || "").trim();
@@ -193,14 +194,8 @@ module.exports = function registerAdditionalEvaluationsIPC() {
       const fileBytes = payload.fileBytes;             // optional Uint8Array/ArrayBuffer/array
 
       if (!documentType) return { success: false, error: "documentType is required" };
-      if (documentType !== "SLOComparison")
-        return { success: false, error: `Unsupported documentType: ${documentType}` };
 
-      // keep only ONE file in SOL
-      sendProgress("prepare", "Preparing upload location…");
-      await clearDir(uploadSolDir);
-
-      // Resolve upload destination
+      // ---- helper to coerce bytes ----
       const resolveBuffer = (bytes) => {
         if (Buffer.isBuffer(bytes)) return bytes;
         if (bytes?.type === "Buffer" && Array.isArray(bytes.data)) return Buffer.from(bytes.data);
@@ -211,53 +206,111 @@ module.exports = function registerAdditionalEvaluationsIPC() {
         throw new Error("Unsupported fileBytes payload");
       };
 
-      let destPath = null;
+      // ---- SLO path (unchanged) ----
+      if (documentType === "SLOComparison") {
+        sendProgress("prepare", "Preparing upload location…");
+        await clearDir(uploadSolDir);
 
-      if (filePath && fs.existsSync(filePath)) {
-        // We got an absolute path – just copy it
-        const ext = path.extname(filePath) || ".bin";
-        destPath = path.join(uploadSolDir, `SLO_Current${ext}`);
-        sendProgress("copy", "Copying file…");
-        await fs.promises.copyFile(filePath, destPath);
-      } else if (fileBytes && originalName) {
-        // No path – write the incoming bytes
-        const ext = path.extname(originalName) || ".bin";
-        destPath = path.join(uploadSolDir, `SLO_Current${ext}`);
-        sendProgress("write", "Writing uploaded file…");
-        await fs.promises.writeFile(destPath, resolveBuffer(fileBytes));
-      } else {
-        return { success: false, error: "filePath is invalid and no fileBytes provided" };
+        let destPath = null;
+        if (filePath && fs.existsSync(filePath)) {
+          const ext = path.extname(filePath) || ".bin";
+          destPath = path.join(uploadSolDir, `SLO_Current${ext}`);
+          sendProgress("copy", "Copying file…");
+          await fs.promises.copyFile(filePath, destPath);
+        } else if (fileBytes && originalName) {
+          const ext = path.extname(originalName) || ".bin";
+          destPath = path.join(uploadSolDir, `SLO_Current${ext}`);
+          sendProgress("write", "Writing uploaded file…");
+          await fs.promises.writeFile(destPath, resolveBuffer(fileBytes));
+        } else {
+          return { success: false, error: "filePath is invalid and no fileBytes provided" };
+        }
+
+        sendProgress("process", "Running SLO processor…");
+        const appRoot = app.isPackaged ? process.resourcesPath : app.getAppPath();
+        const scriptPath = path.join(appRoot, "scripts", "slo_file_processor.py");
+
+        const args = ["--input", destPath, "--outdir", dataDir];
+        await runPython({
+          scriptPath,
+          args,
+          onStdout: (s) => sendProgress("python", s.trim()),
+          onStderr: (s) => sendProgress("python-stderr", s.trim())
+        });
+
+        const outJsonPath = path.join(dataDir, "analytics.json");
+        if (!fs.existsSync(outJsonPath)) {
+          return { success: false, error: "SLO processor did not produce analytics.json" };
+        }
+
+        const data = await readJson(outJsonPath, {});
+        sendProgress("done", "Completed.", { uploaded: destPath, json: outJsonPath });
+
+        return {
+          success: true,
+          documentType,
+          uploadedPath: destPath,   // userData/UploadFile/SOL/SLO_Current.<ext>
+          jsonPath: outJsonPath,    // userData/Documents/analytics.json
+          data,
+          meta: { updated_at: nowIso() }
+        };
       }
 
-      // Run python -> write single analytics.json into Documents (overwrite each time)
-      sendProgress("process", "Running SLO processor…");
-      const appRoot = app.isPackaged ? process.resourcesPath : app.getAppPath();
-      const scriptPath = path.join(appRoot, "scripts", "slo_file_processor.py");
+      // ---- NEW: Social Media (Facebook) ----
+      if (documentType === "SocialMedia") {
+        sendProgress("prepare", "Preparing Social Media upload…");
+        await clearDir(uploadSmDir);
 
-      const args = ["--input", destPath, "--outdir", dataDir];
-      await runPython({
-        scriptPath,
-        args,
-        onStdout: (s) => sendProgress("python", s.trim()),
-        onStderr: (s) => sendProgress("python-stderr", s.trim())
-      });
+        let destPath = null;
+        if (filePath && fs.existsSync(filePath)) {
+          const ext = path.extname(filePath) || ".xlsx";
+          destPath = path.join(uploadSmDir, `SocialMedia_Current${ext}`);
+          sendProgress("copy", "Copying file…");
+          await fs.promises.copyFile(filePath, destPath);
+        } else if (fileBytes && originalName) {
+          const ext = path.extname(originalName) || ".xlsx";
+          destPath = path.join(uploadSmDir, `SocialMedia_Current${ext}`);
+          sendProgress("write", "Writing uploaded file…");
+          await fs.promises.writeFile(destPath, resolveBuffer(fileBytes));
+        } else {
+          return { success: false, error: "filePath is invalid and no fileBytes provided" };
+        }
 
-      const outJsonPath = path.join(dataDir, "analytics.json");
-      if (!fs.existsSync(outJsonPath)) {
-        return { success: false, error: "SLO processor did not produce analytics.json" };
-      }
+        // Run Python: parse ALL months on first upload; merge on subsequent uploads.
+        // inside ipcAdditionalEvaluations.cjs, SocialMedia branch
 
-      const data = await readJson(outJsonPath, {});
-      sendProgress("done", "Completed.", { uploaded: destPath, json: outJsonPath });
+      sendProgress("process", "Processing Social Media workbook…");
+      const appRoot   = app.isPackaged ? process.resourcesPath : app.getAppPath();
+      const scriptPath = path.join(appRoot, "scripts", "social_media_store.py");
+      const args = ["--input", destPath, "--outdir", socialMediaDir, "--platform", "all", "--mode", "merge"];
+      await runPython({ scriptPath, args, onStdout: s => sendProgress("python", s.trim()), onStderr: s => sendProgress("python-stderr", s.trim()) });
+
+      // Read all outputs if present
+      const out = (name) => path.join(socialMediaDir, `${name}_all.json`);
+      const fbData = fs.existsSync(out("facebook"))   ? JSON.parse(await fs.promises.readFile(out("facebook"),   "utf8")) : [];
+      const igData = fs.existsSync(out("instagram"))  ? JSON.parse(await fs.promises.readFile(out("instagram"),  "utf8")) : [];
+      const liData = fs.existsSync(out("linkedin"))   ? JSON.parse(await fs.promises.readFile(out("linkedin"),   "utf8")) : [];
+      const nlData = fs.existsSync(out("newsletter")) ? JSON.parse(await fs.promises.readFile(out("newsletter"), "utf8")) : [];
+      const pbData = fs.existsSync(out("podbean"))    ? JSON.parse(await fs.promises.readFile(out("podbean"),    "utf8")) : [];
 
       return {
         success: true,
         documentType,
-        uploadedPath: destPath,   // userData/UploadFile/SOL/SLO_Current.<ext>
-        jsonPath: outJsonPath,    // userData/Documents/analytics.json
-        data,
+        uploadedPath: destPath,
+        outputs: {
+          facebook: out("facebook"),
+          instagram: out("instagram"),
+          linkedin:  out("linkedin"),
+          newsletter:out("newsletter"),
+          podbean:   out("podbean"),
+        },
+        data: { facebook: fbData, instagram: igData, linkedin: liData, newsletter: nlData, podbean: pbData },
         meta: { updated_at: nowIso() }
       };
+
+      } 
+
+      return { success: false, error: `Unsupported documentType: ${documentType}` };
     } catch (e) {
       return { success: false, error: e.message };
     }
@@ -274,7 +327,18 @@ module.exports = function registerAdditionalEvaluationsIPC() {
     }
   });
 
-  // (Optional) watch file changes and push updates
+  // Watch for social_media JSON changes too (optional)
+  try {
+    fs.watch(socialMediaDir, { persistent: false }, (_evt, filename) => {
+      if (filename && filename.endsWith(".json")) {
+        for (const win of BrowserWindow.getAllWindows()) {
+          win.webContents.send("Additional:analytics-updated");
+        }
+      }
+    });
+  } catch {}
+
+  // Existing watcher for analytics.json
   try {
     fs.watch(dataDir, { persistent: false }, (eventType, filename) => {
       if (filename === "analytics.json") {
@@ -284,5 +348,4 @@ module.exports = function registerAdditionalEvaluationsIPC() {
       }
     });
   } catch {}
-
 };
