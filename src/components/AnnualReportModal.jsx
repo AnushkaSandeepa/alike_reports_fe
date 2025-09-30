@@ -148,6 +148,7 @@ const ViewAnnualReportModal = ({ isOpen, onClose, data, size = "xl" }) => {
     <Modal
       isOpen={isOpen}
       onRequestClose={onClose}
+      ariaHideApp={false}
       contentLabel="Period Report"
       style={{
         overlay: { zIndex: 9999, backgroundColor: "rgba(0,0,0,0.5)" },

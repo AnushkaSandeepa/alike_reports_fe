@@ -43,7 +43,7 @@ const ViewReportModal = ({ isOpen, onClose, data, size = "xl" }) => {
   const confidence = data;
   if (!confidence) {
     return (
-      <Modal isOpen={isOpen} onRequestClose={onClose}>
+      <Modal isOpen={isOpen} onRequestClose={onClose} ariaHideApp={false}>
         <div style={{ padding: "20px", color: "red" }}>
           <h5>⚠️ There is an issue in data mapping</h5>
           <p>Please contact administration / developer team to sort out the issue.</p>

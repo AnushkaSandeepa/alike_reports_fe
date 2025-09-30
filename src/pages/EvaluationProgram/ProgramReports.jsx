@@ -342,6 +342,7 @@ const EventReportTableContainer = ({
             <select
               className="form-select"
               value={fundingBody}
+              disabled
               onChange={(e) => setFundingBody(e.target.value)}
               disabdisabled={!programType || loadingSheets}led
             >
