@@ -26,7 +26,6 @@ export default function useRecoverPassword() {
     setLoading(true);
     try {
       const response = await authApi.forgetPassword(email);
-      console.log(response);
     } catch (error) {
       showNotification({ message: error.toString(), type: 'error' });
     } finally {

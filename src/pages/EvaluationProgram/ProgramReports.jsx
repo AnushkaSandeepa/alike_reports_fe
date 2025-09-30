@@ -191,7 +191,6 @@ const EventReportTableContainer = ({
     const fetchSheets = async () => {
       setLoadingSheets(true);
       const result = await window.electronAPI.getUploadedSheets();
-      console.log("Fetched sheets:", result);
       if (result.success) {
         setAllSheets(result.data);
       } else {

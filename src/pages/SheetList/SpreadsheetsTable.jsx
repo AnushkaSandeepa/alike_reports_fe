@@ -11,7 +11,6 @@ function EventSheetsTable() {
     DOH: "DOH",
   };
   
-  console.log("Sheet Data:", sheetData);
   // Fetch metadata on mount
   useEffect(() => {
     const fetchData = async () => {

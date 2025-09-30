@@ -1,11 +1,18 @@
 # scripts/report_generator_period.py
 import sys, json, datetime, statistics, os
 
+DATE_FMT = "%Y-%m-%d"
+
 def parse_date(s):
-    try:
-        return datetime.datetime.strptime(s, "%Y-%m-%d").date()
-    except Exception:
+    if not s:
         return None
+    s = str(s).strip()
+    for fmt in (DATE_FMT,):
+        try:
+            return datetime.datetime.strptime(s, fmt).date()
+        except Exception:
+            pass
+    return None
 
 def safe_num(x):
     try:
@@ -13,9 +20,15 @@ def safe_num(x):
     except Exception:
         return None
 
+def ranges_overlap(a_start, a_end, b_start, b_end):
+    """Inclusive overlap: [a_start, a_end] ∩ [b_start, b_end] ≠ ∅."""
+    if not (a_start and a_end and b_start and b_end):
+        return False
+    return (a_start <= b_end) and (b_start <= a_end)
+
 def main():
     if len(sys.argv) < 4:
-        print("Usage: period_report_generator.py START_DATE END_DATE DB_PATH", file=sys.stderr)
+        print("Usage: report_generator_period.py START_DATE END_DATE DB_PATH", file=sys.stderr)
         sys.exit(2)
 
     start_s, end_s, db_path = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -32,21 +45,28 @@ def main():
     with open(db_path, "r", encoding="utf-8") as f:
         rows = json.load(f) or []
 
-    # filter by event_date (fallback generated_date)
-    # filter by event_date (fallback generated_date)
+    # --- Select rows by evaluation range overlap (fallback to single dates) ---
     selected = []
     for r in rows:
-        # skip reports that are not active
+        # keep only "Active" when present
         if r.get("reportStatus") and r["reportStatus"] != "Active":
             continue
 
+        # Preferred: evaluation window overlap
+        es = parse_date(r.get("evaluation_start"))
+        ee = parse_date(r.get("evaluation_end"))
+
+        if ranges_overlap(es, ee, start, end):
+            selected.append(r)
+            continue
+
+        # Fallback: single date within range
         ds = r.get("event_date") or r.get("generated_date")
         d  = parse_date(ds) if ds else None
-        if d and start <= d <= end:
+        if d and (start <= d <= end):
             selected.append(r)
 
-
-    # Aggregate
+    # --- Aggregate ---
     networking_rates = []
     workshop_pre, workshop_post, workshop_inc, workshop_sat = [], [], [], []
 
@@ -62,15 +82,14 @@ def main():
             post = safe_num(cd.get("post_percent"))
             inc = safe_num(cd.get("increase_percent"))
             sat = safe_num(cd.get("satisfaction_rate"))
-            if pre is not None:  workshop_pre.append(pre)
+            if pre  is not None: workshop_pre.append(pre)
             if post is not None: workshop_post.append(post)
-            if inc is not None:  workshop_inc.append(inc)
-            if sat is not None:  workshop_sat.append(sat)
+            if inc  is not None: workshop_inc.append(inc)
+            if sat  is not None: workshop_sat.append(sat)
 
     def avg(lst):
         return round(statistics.fmean(lst), 2) if lst else None
 
-    # overall satisfaction across networking + workshop
     all_satisfaction = networking_rates + workshop_sat
     overall_satisfaction = avg(all_satisfaction)
 
@@ -82,20 +101,20 @@ def main():
         "included_report_ids": [r.get("reportId") for r in selected],
         "counts": {
             "total_reports": len(selected),
-            "networking_events": sum(1 for r in selected if r.get("program_type")=="networking_events"),
-            "workshops": sum(1 for r in selected if r.get("program_type")=="workshop"),
-            "with_satisfaction": len(all_satisfaction), 
+            "networking_events": sum(1 for r in selected if r.get("program_type") == "networking_events"),
+            "workshops":         sum(1 for r in selected if r.get("program_type") == "workshop"),
+            "with_satisfaction": len(all_satisfaction),
         },
         "aggregates": {
-            "overall": {  
+            "overall": {
                 "avg_satisfaction_percent": overall_satisfaction,
             },
             "networking_events": {
                 "avg_satisfaction_percent": avg(networking_rates),
             },
             "workshop": {
-                "avg_pre_percent":  avg(workshop_pre),
-                "avg_post_percent": avg(workshop_post),
+                "avg_pre_percent":      avg(workshop_pre),
+                "avg_post_percent":     avg(workshop_post),
                 "avg_increase_percent": avg(workshop_inc),
                 "avg_satisfaction_percent": avg(workshop_sat),
             },
