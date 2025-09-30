@@ -38,7 +38,7 @@ const MENU_ITEMS = [
   {
 	key: 'maintainance',
 	label: 'maintainance',
-	icon: 'fas fa-file-upload',
+  icon: 'fa-solid fa-screwdriver-wrench',
 	url: '/maintainance',
 	}
 
