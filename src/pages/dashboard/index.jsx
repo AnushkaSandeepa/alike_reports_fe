@@ -4,7 +4,6 @@ import { IoPauseCircleSharp } from "react-icons/io5";
 import { BiSolidCarMechanic } from "react-icons/bi";
 import InfoCard from '../../components/InfoCard';
 import { PageBreadcrumb } from '@/components';
-import LineBar from './linebarchart';
 import WebsiteDownloadsViz from './websitedownloadchart';
 import PlatformBySocialType from './socialMediaReaches';
 import SLO1Charts from './SLO1Charts';
@@ -116,16 +115,6 @@ const Dashboard = () => {
       <LinkedInComboChart />
 
       <NewsletterComboChart/>
-
-
-        <Card className="mt-4">
-          <CardBody>
-            <CardTitle>Facebook Reach</CardTitle>
-            <div id="mix-line-bar" className="e-chart">
-              <LineBar />
-            </div>
-          </CardBody>
-        </Card>
 
 		{loading ? (
 			<div className="py-5 text-center"><Spinner /></div>

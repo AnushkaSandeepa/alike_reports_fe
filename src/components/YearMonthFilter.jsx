@@ -1,3 +1,4 @@
+// components/YearMonthFilter.jsx
 import React from "react";
 import PropTypes from "prop-types";
 
@@ -19,7 +20,7 @@ const chipBase = {
 const chipOn  = { background: "#e7f3eb", color: "#164728", borderColor: "#9ad0b1" };
 const chipOff = { background: "#f8f9fa", color: "#344054", borderColor: "#e5e7eb" };
 
-function Chip({ active, children, onClick, title }) {
+export function Chip({ active, children, onClick, title }) {
   return (
     <button
       type="button"
@@ -34,7 +35,7 @@ function Chip({ active, children, onClick, title }) {
   );
 }
 
-function Section({ title, children, right }) {
+export function Section({ title, children, right }) {
   return (
     <div className="w-100">
       <div className="d-flex align-items-center justify-content-between mb-2">
@@ -47,7 +48,7 @@ function Section({ title, children, right }) {
 }
 
 /* ------------ public reusable component ------------ */
-export default function YearMonthFilter({
+function YearMonthFilter({
   years = [],
   months = MONTH_META.map(m => m.num),
   valueYears = [],
@@ -135,3 +136,5 @@ YearMonthFilter.propTypes = {
   showMonthPresets: PropTypes.bool,
   className: PropTypes.string,
 };
+
+export default YearMonthFilter;
