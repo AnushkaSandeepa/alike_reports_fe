@@ -34,6 +34,12 @@ const MENU_ITEMS = [
 	label: 'Additional Evaluations',
 	icon: 'fas fa-file-upload',
 	url: '/additional_evaluations',
+	},
+  {
+	key: 'maintainance',
+	label: 'maintainance',
+	icon: 'fas fa-file-upload',
+	url: '/maintainance',
 	}
 
 ];

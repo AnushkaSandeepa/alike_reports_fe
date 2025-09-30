@@ -10,6 +10,7 @@ import EventSheetsTable from '@/pages/SheetList/SpreadsheetsTable';
 import EventReportGenerate from '@/pages/EvaluationProgram/ProgramReportTable';
 import AnnualReportGenerate from '@/pages/EvaluationAnnual/AnnualReportTable';
 import AdditionalEvaluations from '@/pages/AdditionalEvaluations/additionalEvlMain';
+import Maintainance from '@/pages/Maintainance/MProcess';
 
 
 /**
@@ -41,6 +42,7 @@ export default function ProtectedRoutes() {
 				<Route path="event_reports/*" element={<EventReportGenerate />} />
 				<Route path="annual_reports/*" element={<AnnualReportGenerate />} />
 				<Route path="additional_evaluations/*" element={<AdditionalEvaluations />} />
+				<Route path="maintainance/*" element={<Maintainance />} />
 
 
 			     

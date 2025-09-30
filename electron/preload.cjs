@@ -138,6 +138,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   getSocialReachSummary: (opts) => ipcRenderer.invoke("SocialMedia:get-reach-summary", opts),
 
+  // ===== Maintenance =====
+  copyMaintenancePdf: () => ipcRenderer.invoke("maintenance.copy-pdf"),
+  pushUploadsToOneDrive: (opts) => ipcRenderer.invoke("maintenance.push-uploads-to-onedrive", opts || {}),
+  getOneDrivePath:       ()    => ipcRenderer.invoke("maintenance.get-onedrive-path"),
 
 
 });

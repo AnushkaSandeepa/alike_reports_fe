@@ -14,6 +14,7 @@ const registerIpcHandlers      = require("./ipcHandlers.cjs");
 const registerReportGenerate   = require("./ipcReportGenerate.cjs");   // exports function ()
 const registerPeriodReports    = require("./ipcPeriodReports.cjs");
 const registerAdditionalEvals  = require("./ipcAdditionalEvaluations.cjs"); // exports function ()
+const registerMaintenanceIPC = require("./ipcMaintenance.cjs");
 
 function getIndexHtmlPath() {
   const candidates = [
@@ -76,6 +77,8 @@ if (!gotLock) {
     try { registerReportGenerate(); } catch { registerReportGenerate(ipcMain); }
     registerPeriodReports(ipcMain);
     registerAdditionalEvals(); // zero-arg
+    registerMaintenanceIPC();
+
 
     // 3) Create window
     createWindow();
