@@ -39,7 +39,7 @@ def parse_date(s):
 
 def find_event_date_series(df):
     candidates = [
-        "Event Date","Event date","Date of Event","Session Date","Workshop Date","Date","Timestamp"
+        "Event Date","Event date","Date of Event","Session Date","Workshop Date","Workshop date"
     ]
     for col in df.columns:
         for cand in candidates:
@@ -59,6 +59,44 @@ def to_numeric_map(df, cols, which="confidence"):
     return out
 
 def infer_pre_post_by_marker(df):
+    marker_variants = [
+        "Please mark whether this feedback is for before or after the workshop.",
+        "Please mark whether this feedback is for before or after the session.",
+        "Before/After",
+        "Before or After",
+        "Is this BEFORE or AFTER the workshop?",
+    ]
+    for col in df.columns:
+        if str(col).strip().lower() in [mv.lower() for mv in marker_variants]:
+            start_idx = df.columns.get_loc(col) + 1
+            if start_idx >= len(df.columns):
+                return [], [], []
+
+            pre_cols = []
+            i = start_idx
+            while i < len(df.columns):
+                colname = df.columns[i]
+                first_val = df[colname].iloc[0]
+                # if the *first data row* is empty, we reached the post block
+                if pd.isna(first_val) or str(first_val).strip() == "":
+                    break
+                pre_cols.append(colname)
+                i += 1
+
+            n_pre = len(pre_cols)
+            post_cols = list(df.columns[i : i + n_pre])
+
+            # everything after = satisfaction candidates
+            tail = list(df.columns[i + n_pre :])
+            satisfaction_cols = []
+            for c in tail:
+                s = df[c].dropna().astype(str).str.strip()
+                if s.isin(AGREEMENT_LABELS).any():
+                    satisfaction_cols.append(c)
+
+            return pre_cols, post_cols, satisfaction_cols
+    return None
+
     marker_variants = [
         "Please mark whether this feedback is for before or after the workshop.",
         "Please mark whether this feedback is for before or after the session.",
