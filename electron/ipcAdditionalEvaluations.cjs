@@ -342,6 +342,51 @@ module.exports = function registerAdditionalEvaluationsIPC() {
     podbean:    "podbean_all.json",
   };
 
+  const REACH_METRICS = {
+    facebook:   ["Post Reach"],              // FB has explicit reach
+    instagram:  ["Content Reach", "Stories Reach"], // IG separates content & stories reach
+    linkedin:   ["Impressions"],             // LinkedIn doesn't expose reach; use impressions
+    newsletter: ["Opens"],                   // Newsletter "reach" proxy
+  };
+
+  ipcMain.handle("SocialMedia:get-reach-summary", async (_evt, { years, months } = {}) => {
+    try {
+      // Coerce filters
+      const yset = Array.isArray(years)  && years.length  ? new Set(years.map(Number)) : null;
+      const mset = Array.isArray(months) && months.length ? new Set(months.map(Number)) : null;
+
+      const platforms = Object.keys(REACH_METRICS);
+      const rows = [];
+
+      for (const pl of platforms) {
+        const data = await loadPlatformData(pl); // already returns normalized array
+        const metrics = new Set(REACH_METRICS[pl]);
+
+        const totalReach = (data || []).reduce((sum, r) => {
+          if (!metrics.has(r.metric)) return sum;
+          if (yset && !yset.has(Number(r.year))) return sum;
+          if (mset && !mset.has(Number(r.month_num))) return sum;
+          const v = Number(r.value) || 0;
+          return sum + v;
+        }, 0);
+
+        rows.push({
+          platform: pl,
+          label: pl === "newsletter" ? "e-Newsletter" : (pl.charAt(0).toUpperCase() + pl.slice(1)),
+          totalReach,
+        });
+      }
+
+      // Sort descending by reach (useful for bar ordering)
+      rows.sort((a, b) => b.totalReach - a.totalReach);
+
+      return { success: true, rows };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
+
   const loadPlatformData = async (platform) => {
     const file = PLATFORM_FILES[platform];
     if (!file) return [];
@@ -463,3 +508,6 @@ module.exports = function registerAdditionalEvaluationsIPC() {
     });
   } catch {}
 };
+
+
+

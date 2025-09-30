@@ -136,6 +136,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   getSocialPosts: (filters) => ipcRenderer.invoke("SocialPosts:get", filters),
 
+  getSocialReachSummary: (opts) => ipcRenderer.invoke("SocialMedia:get-reach-summary", opts),
+
 
 
 });

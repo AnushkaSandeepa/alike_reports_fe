@@ -1,69 +1,216 @@
-// components/NewsletterComboChart.jsx
+// components/NewsletterComboChartEcharts.jsx
 import React from "react";
+import ReactEcharts from "echarts-for-react";
+import * as echarts from "echarts";
 import { Card, CardBody } from "reactstrap";
-import {
-  ResponsiveContainer, ComposedChart,
-  XAxis, YAxis, Tooltip, Legend, Bar, Line, CartesianGrid,
-} from "recharts";
 import YearMonthFilter from "../../components/YearMonthFilter";
 
 const MONTH = ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const COLORS = ["#1cd3a5ff", "#1f77b4", "#ff7f0e","#164728"];
 
-export default function NewsletterComboChart({
+export default function NewsletterComboChartEcharts({
   platform = "newsletter",
   title = "e-Newsletter — Subscribers, Open Rate & Engagement",
+  rateScale = 1, // 1 if rates already 0–100; 100 if stored 0–1; 0.01 if basis points (e.g., 275 => 2.75%)
 }) {
-  const [filters, setFilters] = React.useState({ years: [], months: [] });
-  const [years, setYears]   = React.useState([]);
-  const [months, setMonths] = React.useState([]);
-  const [rows, setRows]     = React.useState([]);
+  const [filters, setFilters]   = React.useState({ years: [], months: [] });
+  const [years, setYears]       = React.useState([]);
+  const [months, setMonths]     = React.useState([]);
+  const [rows, setRows]         = React.useState([]);
+  const [loading, setLoading]   = React.useState(true);
 
-  // 1) Load available years/months (default: select all)
+  // Load available filters
   React.useEffect(() => {
+    let live = true;
     (async () => {
       const meta = await window.electronAPI.getSocialFilters(platform);
-      if (meta?.success) {
-        setFilters({ years: meta.years ?? [], months: meta.months ?? [] });
-        setYears(meta.years ?? []);
-        setMonths(meta.months ?? []);
-      }
+      if (!live) return;
+      const ys = meta?.years ?? [];
+      const ms = meta?.months ?? [];
+      setFilters({ years: ys, months: ms });
+      setYears(ys);
+      setMonths(ms.length ? ms : [1,2,3,4,5,6,7,8,9,10,11,12]);
     })();
+    return () => { live = false; };
   }, [platform]);
 
-  // 2) Fetch newsletter data
+  // Fetch data
   React.useEffect(() => {
     if (!years.length || !months.length) return;
+    let live = true;
+    setLoading(true);
     (async () => {
       const res = await window.electronAPI.getSocialData({
         platform,
-        // main chart metrics; add "Opens", "Clicks" here if you want extra bars
         metrics: ["Subscribers", "Open percentage", "Engagement Rate"],
         years, months,
       });
-      if (res?.success) setRows(res.rows || []);
+      if (!live) return;
+      setRows(res?.success ? (res.rows || []) : []);
+      setLoading(false);
     })();
+    return () => { live = false; };
   }, [platform, years, months]);
 
-  // 3) Shape rows for Recharts. Also alias "Open percentage" -> "Open Rate" for cleaner legend.
-  const data = React.useMemo(() => {
-    const m = new Map();
+  // Pivot & order
+  const { labels, subsArr, openArr, engageArr } = React.useMemo(() => {
+    const byYM = new Map();
     for (const r of rows) {
       const key = `${r.year}-${r.month_num}`;
-      if (!m.has(key)) {
-        m.set(key, { year: r.year, month: r.month_num, label: `${MONTH[r.month_num]} ${r.year}` });
+      if (!byYM.has(key)) {
+        byYM.set(key, {
+          year: r.year, month: r.month_num,
+          Subscribers: 0, "Open Rate": 0, "Engagement Rate": 0
+        });
       }
-      const metricName = r.metric === "Open percentage" ? "Open Rate" : r.metric;
-      m.get(key)[metricName] = r.value;
+      const metric = r.metric === "Open percentage" ? "Open Rate" : r.metric;
+      byYM.get(key)[metric] = r.value ?? 0;
     }
-    return Array.from(m.values()).sort((a,b) =>
+    const ordered = Array.from(byYM.values()).sort((a,b) =>
       a.year === b.year ? a.month - b.month : a.year - b.year
     );
+    return {
+      labels:   ordered.map(d => `${MONTH[d.month]} ${d.year}`),
+      subsArr:  ordered.map(d => d.Subscribers),
+      openArr:  ordered.map(d => d["Open Rate"]),
+      engageArr:ordered.map(d => d["Engagement Rate"]),
+    };
   }, [rows]);
 
-  const fmtPct = (v) => (v == null ? "" : `${Number(v).toFixed(0)}%`);
-  const fmtNum = (v) =>
-    v == null ? "" : Math.abs(v) >= 1000 ? Math.round(v).toLocaleString() : `${v}`;
+  const toPct = (v) => {
+    const x = Number(v) * rateScale;
+    return Number.isFinite(x) ? `${Math.round(x)}%` : "";
+  };
+  const fmtNum = (v) => v == null ? "" :
+    (Math.abs(v) >= 1000 ? Math.round(v).toLocaleString() : `${v}`);
+
+  const option = {
+    animationDuration: 700,
+    grid: { top: 56, left: 8, right: 16, bottom: 60, containLabel: true },
+    legend: {
+      top: 8, itemWidth: 14, itemHeight: 10,
+      data: ["Subscribers", "Open Rate", "Engagement Rate"],
+      textStyle: { fontSize: 12 },
+    },
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      backgroundColor: "#111827",
+      borderWidth: 0,
+      textStyle: { color: "#fff" },
+      formatter: (params) => {
+        const title = params?.[0]?.axisValue ?? "";
+        const lines = params.map(p => {
+          const val = (p.seriesName.includes("Rate")) ? toPct(p.value) : fmtNum(p.value);
+          return `<div style="margin:2px 0;">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};margin-right:6px;"></span>
+            ${p.seriesName}: <b>${val}</b>
+          </div>`;
+        });
+        return `<div style="padding:2px 0 2px 0">
+          <div style="font-weight:600;margin-bottom:4px">${title}</div>
+          ${lines.join("")}
+        </div>`;
+      }
+    },
+    xAxis: {
+      type: "category",
+      data: labels,
+      axisTick: { show: false },
+      axisLabel: { interval: 0, rotate: labels.length > 8 ? 30 : 0 },
+    },
+    yAxis: [
+      {
+        type: "value",
+        name: "Subscribers",
+        min: 0,
+        boundaryGap: [0, 0.1],
+        splitLine: { show: true, lineStyle: { type: "dashed" } },
+        axisLabel: { formatter: (v) => fmtNum(v) },
+      },
+      {
+        type: "value",
+        name: "Rates",
+        min: 0,
+        boundaryGap: [0, 0.1],
+        splitLine: { show: false },
+        axisLabel: { formatter: (v) => toPct(v) },
+      },
+    ],
+    toolbox: {
+      right: 8,
+      feature: { dataZoom: { yAxisIndex: "none" }, restore: {}, saveAsImage: {} },
+    },
+    dataZoom: [
+      { type: "inside", start: 0, end: 100 },
+      { type: "slider", start: 0, end: 100, bottom: 20, height: 22 },
+    ],
+    series: [
+      {
+        name: "Subscribers",
+        type: "bar",
+        yAxisIndex: 0,
+        data: subsArr,
+        barWidth: 22,
+        barGap: "8%",
+        z: 3,
+        itemStyle: {
+          borderRadius: [6, 6, 0, 0],
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: "#1cd3a5" },
+            { offset: 1, color: "rgba(28,211,165,0.45)" },
+          ]),
+        },
+      },
+      {
+        name: "Open Rate",
+        type: "line",
+        yAxisIndex: 1,
+        data: openArr,
+        smooth: true,
+        symbol: "circle",
+        symbolSize: 7,
+        lineStyle: { width: 3, color: "#1f77b4" },
+        itemStyle: { color: "#1f77b4", borderWidth: 2, borderColor: "#fff" },
+        areaStyle: {
+          opacity: 0.10,
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: "#1f77b4" },
+            { offset: 1, color: "rgba(31,119,180,0)" },
+          ]),
+        },
+        markLine: {
+          symbol: "none",
+          lineStyle: { type: "dashed", color: "#1f77b4" },
+          label: { formatter: ({ value }) => `Avg ${toPct(value)}`, fontSize: 12 },
+          data: [{ type: "average", name: "Avg" }],
+        },
+      },
+      {
+        name: "Engagement Rate",
+        type: "line",
+        yAxisIndex: 1,
+        data: engageArr,
+        smooth: true,
+        symbol: "circle",
+        symbolSize: 7,
+        lineStyle: { width: 3, color: "#ff7f0e" },
+        itemStyle: { color: "#ff7f0e", borderWidth: 2, borderColor: "#fff" },
+        areaStyle: {
+          opacity: 0.10,
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: "#ff7f0e" },
+            { offset: 1, color: "rgba(255,127,14,0)" },
+          ]),
+        },
+        markLine: {
+          symbol: "none",
+          lineStyle: { type: "dashed", color: "#ff7f0e" },
+          label: { formatter: ({ value }) => `Avg ${toPct(value)}`, fontSize: 12 },
+          data: [{ type: "average", name: "Avg" }],
+        },
+      },
+    ],
+  };
 
   return (
     <Card>
@@ -71,43 +218,21 @@ export default function NewsletterComboChart({
         <div className="grid gap-4">
           <h4 className="font-semibold">{title}</h4>
 
-          {/* reusable year/month chips with presets */}
           <YearMonthFilter
             years={filters.years || []}
+            months={filters.months || undefined}
             valueYears={years}
             valueMonths={months}
             onChangeYears={setYears}
             onChangeMonths={setMonths}
             showMonthPresets
+            className="mb-2"
           />
 
-          {/* chart */}
-          <ResponsiveContainer width="100%" height={360}>
-            <ComposedChart data={data} margin={{ top: 10, right: 25, left: 10, bottom: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" />
-              {/* left: counts */}
-              <YAxis yAxisId="left"  tickFormatter={fmtNum} allowDecimals={false} />
-              {/* right: percentages */}
-              <YAxis yAxisId="right" orientation="right" tickFormatter={fmtPct} domain={[0, "auto"]} allowDecimals={false} />
-
-              <Tooltip formatter={(v, n) => (n === "Open Rate" || n === "Engagement Rate" ? fmtPct(v) : fmtNum(v))} />
-              <Legend />
-
-              {/* Bars (counts) */}
-              <Bar  yAxisId="left"  dataKey="Subscribers" name="Subscribers" fill={COLORS[0]} barSize={28} radius={[4,4,0,0]} />
-
-              {/* Lines (rates) */}
-              <Line yAxisId="right" type="monotone" dataKey="Open Rate"        name="Open Rate"        dot stroke={COLORS[1]} strokeWidth={2} />
-              <Line yAxisId="right" type="monotone" dataKey="Engagement Rate"  name="Engagement Rate"  dot stroke={COLORS[2]} strokeWidth={2} />
-
-              {/*
-                Optional extras:
-                <Bar yAxisId="left" dataKey="Opens"  name="Opens"  fill={COLORS[3]} barSize={20} radius={[4,4,0,0]} />
-                <Bar yAxisId="left" dataKey="Clicks" name="Clicks" fill="#d62728"  barSize={20} radius={[4,4,0,0]} />
-              */}
-            </ComposedChart>
-          </ResponsiveContainer>
+          {loading
+            ? <div style={{ height: 360, display: "grid", placeItems: "center" }}>Loading…</div>
+            : <ReactEcharts style={{ height: 360 }} option={option} theme="light" />
+          }
         </div>
       </CardBody>
     </Card>
