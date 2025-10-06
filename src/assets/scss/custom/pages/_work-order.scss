@@ -101,5 +101,22 @@
    
   }
 
+  /* compact table spacing */
+.table-sm td, .table-sm th {
+  padding-top: .35rem;
+  padding-bottom: .35rem;
+}
+
+/* nicer hover contrast */
+.table-hover tbody tr:hover {
+  background-color: rgba(0,0,0,.03);
+}
+
+/* soft rounded progress bars */
+.progress, .progress-bar {
+  border-radius: 6px;
+}
+
+
 
   
