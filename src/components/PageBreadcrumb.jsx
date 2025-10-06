@@ -6,7 +6,7 @@ const PageBreadcrumb = ({ subName, title, children }) => {
   return (
     <>
       <Helmet>
-        <title>{title} | Alike WA</title>
+        <title>{title} | Alike Analytica</title>
       </Helmet>
       {subName && (
         <Row>
