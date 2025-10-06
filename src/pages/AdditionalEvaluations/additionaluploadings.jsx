@@ -9,7 +9,7 @@ const DOCUMENT_TYPES = [
   { value: "", label: "Select type" },
   { value: "SocialMedia", label: "Social Media" },
   { value: "SLOComparison", label: "SLO 1 Comparison" },
-  { value: "PIFInsights", label: "PIF Insights" }, // future
+  // { value: "PIFInsights", label: "PIF Insights" }, 
 ];
 
 // Extensions and common MIME types (Windows may report CSV as text/plain)
