@@ -1,4 +1,4 @@
-import React, { useRef, useState  } from "react"; 
+import React, { useRef, useState } from "react";
 import PropTypes from "prop-types";
 import Modal from "react-modal";
 import html2canvas from "html2canvas";
@@ -15,11 +15,12 @@ const ViewReportModal = ({ isOpen, onClose, data, size = "xl" }) => {
     md: "720px",
     lg: "960px",
     xl: "1140px",
-    xxl: "1320px"
+    xxl: "1320px",
   };
   const width = modalWidths[size] || "720px";
 
   const handleDownloadAsImage = async () => {
+    if (!contentRef.current) return;
     const canvas = await html2canvas(contentRef.current);
     const link = document.createElement("a");
     const fileName = `${data?.spreadsheet_name || "report-summary"}.png`;
@@ -29,6 +30,7 @@ const ViewReportModal = ({ isOpen, onClose, data, size = "xl" }) => {
   };
 
   const handleDownloadAsPDF = async () => {
+    if (!contentRef.current) return;
     const canvas = await html2canvas(contentRef.current);
     const imgData = canvas.toDataURL("image/png");
     const pdf = new jsPDF();
@@ -42,59 +44,69 @@ const ViewReportModal = ({ isOpen, onClose, data, size = "xl" }) => {
 
   if (!data) return null;
 
-  // ✅ Safely extract confidence data
-  const confidence = data;
-  if (!confidence) {
-    return (
-      <Modal isOpen={isOpen} onRequestClose={onClose}>
-        <div style={{ padding: "20px", color: "red" }}>
-          <h5>⚠️ There is an issue in data mapping</h5>
-          <p>Please contact administration / developer team to sort out the issue.</p>
-          <button onClick={onClose}>Close</button>
-          
-        </div>
-      </Modal>
-    );
-  }
+  // --- safe number helpers ---
+  const toNum = (x) => {
+    const n = Number(x);
+    return Number.isFinite(n) ? n : null; // null if missing/NaN
+  };
+  const fmt = (n, d = 1) => (n === null ? "" : n.toFixed(d));
 
-  // Extract values safely from data.confidence_data
-  const pre = data?.confidence_data?.pre_percent ?? 0;
-  const post = data?.confidence_data?.post_percent ?? 0;
-  const increase = data?.confidence_data?.increase_percent ?? 0;
-  const satisfaction = data?.confidence_data?.satisfaction_rate ?? 0;
+  // pull values safely (don’t default to 0 if you want “missing” detection)
+  const pre = toNum(data?.confidence_data?.pre_percent);
+  const post = toNum(data?.confidence_data?.post_percent);
+  const increase = toNum(
+    data?.confidence_data?.increase_percent ??
+      (pre !== null && post !== null ? post - pre : null)
+  );
+  const satisfaction = toNum(data?.confidence_data?.satisfaction_rate);
+
+  const hasStats = [pre, post, increase, satisfaction].some((v) => v !== null);
+
+  // --- ApexCharts: series + options (guarded) ---
+  const series =
+    pre !== null && post !== null
+      ? [{ name: "Confidence Level", data: [pre, post] }]
+      : [];
 
   const chartOptions = {
     chart: { type: "bar", height: 350, toolbar: { show: false } },
     plotOptions: {
-        bar: { horizontal: false, columnWidth: "50%", endingShape: "rounded", distributed: true }
+      bar: {
+        horizontal: false,
+        columnWidth: "50%",
+        endingShape: "rounded",
+        distributed: true,
       },
+    },
     dataLabels: { enabled: true, formatter: (val) => `${val}%` },
     xaxis: { categories: ["Pre-Workshop", "Post-Workshop"] },
     yaxis: { max: 100, title: { text: "Confidence Level (%)" } },
     colors: ["#ff2949ff", "#00d17aff"],
-    annotations: {
-    yaxis: [{
-      y: post,
-      borderColor: '#008FFB',
-      label: {
-        text: `+${increase.toFixed(1)}% confidence increment`,
-        style: { background: '#008FFB', color: "#fff" }
-      }
-    }]
-    }
+    annotations:
+      post !== null && increase !== null
+        ? {
+            yaxis: [
+              {
+                y: post,
+                borderColor: "#008FFB",
+                label: {
+                  text: `+${fmt(increase)}% confidence increment`,
+                  style: { background: "#008FFB", color: "#fff" },
+                },
+              },
+            ],
+          }
+        : {},
   };
 
-  // Satisfaction Radial Chart
+  // --- Satisfaction (radial) ---
   const satisfactionOptions = {
     chart: { type: "radialBar" },
     plotOptions: {
       radialBar: {
         hollow: { size: "65%" },
         dataLabels: {
-          name: {
-            show: true,
-            fontSize: "16px",
-          },
+          name: { show: true, fontSize: "16px" },
           value: {
             show: true,
             fontSize: "22px",
@@ -104,51 +116,48 @@ const ViewReportModal = ({ isOpen, onClose, data, size = "xl" }) => {
       },
     },
     labels: ["Satisfaction"],
-    colors: ["#00E396"], // green theme
+    colors: ["#00E396"],
+  };
+  const satisfactionSeries = satisfaction !== null ? [satisfaction] : [];
+
+  // --- Donut: satisfaction counts (% share) ---
+  const satisfactionCounts = data?.satisfaction_counts || {};
+  const donutLabelsRaw = Object.keys(satisfactionCounts);
+  const donutCountsRaw = Object.values(satisfactionCounts);
+
+  const donutCounts = donutCountsRaw
+    .map((c) => Number(c))
+    .filter((n) => Number.isFinite(n) && n >= 0);
+
+  const donutLabels = donutLabelsRaw.slice(0, donutCounts.length);
+  const totalCount = donutCounts.reduce((a, b) => a + b, 0);
+  const donutSeries =
+    totalCount > 0 ? donutCounts.map((c) => (c / totalCount) * 100) : [];
+
+  const donutOptions = {
+    chart: { type: "donut" },
+    labels: donutLabels,
+    plotOptions: { pie: { donut: { size: "60%" } } },
+    tooltip: {
+      y: {
+        formatter: (val, opts) => {
+          const count = donutCounts[opts.seriesIndex] ?? 0;
+          return `${(Number(val) || 0).toFixed(1)}% (${count} votes)`;
+        },
+      },
+    },
+    dataLabels: {
+      enabled: true,
+      formatter: (val) => `${(Number(val) || 0).toFixed(1)}%`,
+    },
+    colors: ["#00E396", "#FEB019", "#008FFB", "#775DD0", "#f73939ff"],
+    legend: { position: "bottom" },
   };
 
-const satisfactionCounts = data.satisfaction_counts || {};
-const donutLabels = Object.keys(satisfactionCounts);
-const donutCounts = Object.values(satisfactionCounts);
-const totalCount = donutCounts.reduce((a, b) => a + b, 0);
-const donutSeries = donutCounts.map(count => (count / totalCount * 100)); // % for chart
-
-const donutOptions = {
-  chart: { type: "donut" },
-  labels: donutLabels,
-  plotOptions: {
-    pie: { donut: { size: "60%" } },
-  },
-  tooltip: {
-    y: {
-      formatter: (val, opts) => {
-        const count = donutCounts[opts.seriesIndex];
-        return `${val.toFixed(1)}% (${count} votes)`; // safe tooltip
-      }
-    }
-  },
-  dataLabels: {
-    enabled: true,
-    formatter: (val) => `${val.toFixed(1)}%`, // show % on slices
-  },
-  colors: ["#00E396", "#FEB019", "#008FFB", "#775DD0", "#f73939ff"], // fixed colors
-  legend: { position: "bottom" },
-};
-
-  const satisfactionSeries = [data.confidence_data.satisfaction_rate];
-  const series = [{ name: "Confidence Level", data: [pre, post] }];
-
-
-
-
   const toggleFeedbackVisibility = (index) => {
-    // if wanting to permanently remove feedback on click
-    // setHiddenIndexes((prev) =>
-    //   prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
-    // );
     setHiddenIndexes((prev) =>
-    prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
-  );
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
+    );
   };
 
   return (
@@ -166,129 +175,168 @@ const donutOptions = {
           borderRadius: "10px",
           display: "flex",
           flexDirection: "column",
-          maxHeight: "800px"
-        }
+          maxHeight: "800px",
+        },
       }}
     >
-      <div className="modal-header" style={{ padding: "15px", background: "#f5f5f5", borderBottom: "1px solid #ddd" }}>
-        <h5 className="modal-title">Summary for  {data?.spreadsheet_name} </h5>
-        <button onClick={onClose} style={{ background: "transparent", border: "none", fontSize: "18px", cursor: "pointer" }}>
+      <div
+        className="modal-header"
+        style={{
+          padding: "15px",
+          background: "#f5f5f5",
+          borderBottom: "1px solid #ddd",
+        }}
+      >
+        <h5 className="modal-title">
+          Summary for {data?.spreadsheet_name}
+        </h5>
+        <button
+          onClick={onClose}
+          style={{
+            background: "transparent",
+            border: "none",
+            fontSize: "18px",
+            cursor: "pointer",
+          }}
+        >
           &times;
         </button>
       </div>
 
       <div ref={contentRef} className="modal-body" style={{ padding: "20px 50px" }}>
         <Row>
-          {data.program_type === "workshop" ? (
+          {/* Bar chart */}
+          {data.program_type === "workshop" && series.length > 0 && (
             <Col xs={12} md={6}>
               <div style={{ maxWidth: "600px", margin: "auto" }}>
                 <ReactApexChart options={chartOptions} series={series} type="bar" />
               </div>
             </Col>
-          ) : (""
-            
           )}
-          <Col xs={12} md={6} style={{ display: "flex", flexDirection: "column", marginTop: "30px" }}>
-            {/* Donut for Satisfaction Counts */}
+
+          {/* Donut for Satisfaction Counts */}
+          {donutSeries.length > 0 && (
+            <Col
+              xs={12}
+              md={6}
+              style={{ display: "flex", flexDirection: "column", marginTop: "30px" }}
+            >
               <ReactApexChart
                 options={donutOptions}
                 series={donutSeries}
                 type="donut"
-                height ={300}
+                height={300}
               />
-          </Col>
-          {/* <Col xs={12} md={2} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-          
-          </Col> */}
-          <Col
-            xs={12}
-            md={6}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              paddingTop: data.program_type === "networking_events" ? "50px" : "20px"
-            }}
-          >
-            <div style={{ margin: "0 auto" }}>
-              {/* Radial Bar for Satisfaction Rate */}
-              <ReactApexChart
-                options={satisfactionOptions}
-                series={satisfactionSeries}
-                type="radialBar"
-                height={190}
-              />  
-            </div>
-          </Col>
+            </Col>
+          )}
+
+          {/* Radial Bar for Satisfaction Rate */}
+          {satisfactionSeries.length > 0 && (
+            <Col
+              xs={12}
+              md={6}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                paddingTop: data.program_type === "networking_events" ? "50px" : "20px",
+              }}
+            >
+              <div style={{ margin: "0 auto" }}>
+                <ReactApexChart
+                  options={satisfactionOptions}
+                  series={satisfactionSeries}
+                  type="radialBar"
+                  height={190}
+                />
+              </div>
+            </Col>
+          )}
         </Row>
-        
 
         {/* Statistics */}
-        <div style={{ marginTop: "40px" }}>
-          <p><strong>Average pre-workshop confidence level:</strong> {pre.toFixed(1)}%</p>
-          <p><strong>Average post-workshop confidence level:</strong> {post.toFixed(1)}%</p>
-          <p><strong>Confidence level increase:</strong> {increase.toFixed(1)}%</p>
-          <p><strong>Workshop satisfaction rate:</strong> {satisfaction.toFixed(1)}%</p>
-        {/* <div style={{ background: "#f5f5f5", padding: "10px", borderRadius: "6px", textAlign: "center" }}>
-          <strong>Average pre-workshop confidence level:</strong> {pre.toFixed(1)}%
-        </div> */}
-        </div>
-
-
-        {data.additional_feedback?.length > 0 && (
-        <div style={{ marginTop: "20px" }}>
-          <h6>Participant Feedback:</h6>
-          <div style={{ display: "grid", gap: "10px" }}>
-            {data.additional_feedback.map((c, i) => (
-              !hiddenIndexes.includes(i) && (
-                <div
-                  key={i}
-                  style={{
-                    background: "#f9f9f9",
-                    padding: "10px 15px",
-                    borderRadius: "10px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center" }}>
-                    <span 
-                      style={{ fontSize: "18px", marginRight: "20px", cursor: "pointer" }}
-                      title="Click to remove comment"                    
-                      onClick={() => toggleFeedbackVisibility(i)}
-                    >💬</span>
-                    <span>{c}</span>
-                  </div>
-                  {/* Hide Button */}
-                  {/* <span
-                    style={{
-                      cursor: "pointer",
-                      fontSize: "16px",
-                      marginLeft: "15px",
-                      color: "#888"
-                    }}
-                    title="Hide this comment"
-                    onClick={() => toggleFeedbackVisibility(i)}
-                  >
-                    ❌
-                  </span> */}
-                </div>
-              )
-            ))}
+        {hasStats && (
+          <div style={{ marginTop: "40px" }}>
+            {pre !== null && (
+              <p>
+                <strong>Average pre-workshop confidence level:</strong> {fmt(pre)}%
+              </p>
+            )}
+            {post !== null && (
+              <p>
+                <strong>Average post-workshop confidence level:</strong> {fmt(post)}%
+              </p>
+            )}
+            {increase !== null && (
+              <p>
+                <strong>Confidence level increase:</strong> {fmt(increase)}%
+              </p>
+            )}
+            {satisfaction !== null && (
+              <p>
+                <strong>Workshop satisfaction rate:</strong> {fmt(satisfaction)}%
+              </p>
+            )}
           </div>
-        </div>
-      )}
+        )}
 
-
-
+        {/* Participant Feedback */}
+        {Array.isArray(data.additional_feedback) &&
+          data.additional_feedback.length > 0 && (
+            <div style={{ marginTop: "20px" }}>
+              <h6>Participant Feedback:</h6>
+              <div style={{ display: "grid", gap: "10px" }}>
+                {data.additional_feedback.map(
+                  (c, i) =>
+                    !hiddenIndexes.includes(i) && (
+                      <div
+                        key={i}
+                        style={{
+                          background: "#f9f9f9",
+                          padding: "10px 15px",
+                          borderRadius: "10px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          <span
+                            style={{ fontSize: "18px", marginRight: "20px", cursor: "pointer" }}
+                            title="Click to hide this comment"
+                            onClick={() => toggleFeedbackVisibility(i)}
+                          >
+                            💬
+                          </span>
+                          <span>{c}</span>
+                        </div>
+                      </div>
+                    )
+                )}
+              </div>
+            </div>
+          )}
       </div>
 
-      <div className="modal-footer" style={{ padding: "15px", background: "#f5f5f5", borderTop: "1px solid #ddd", textAlign: "right" }}>
-        <button className="btn btn-outline-primary me-2" onClick={handleDownloadAsImage}>Download as Image</button>
-        <button className="btn btn-outline-danger me-2" onClick={handleDownloadAsPDF}>Download as PDF</button>
-        <button className="btn btn-secondary" onClick={onClose}>Close</button>
+      <div
+        className="modal-footer"
+        style={{
+          padding: "15px",
+          background: "#f5f5f5",
+          borderTop: "1px solid #ddd",
+          textAlign: "right",
+        }}
+      >
+        <button className="btn btn-outline-primary me-2" onClick={handleDownloadAsImage}>
+          Download as Image
+        </button>
+        <button className="btn btn-outline-danger me-2" onClick={handleDownloadAsPDF}>
+          Download as PDF
+        </button>
+        <button className="btn btn-secondary" onClick={onClose}>
+          Close
+        </button>
       </div>
     </Modal>
   );
@@ -298,7 +346,7 @@ ViewReportModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   data: PropTypes.object,
-  size: PropTypes.string
+  size: PropTypes.string,
 };
 
 export default ViewReportModal;
