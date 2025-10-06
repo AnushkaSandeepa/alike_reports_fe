@@ -1,6 +1,15 @@
 # scripts/report_generator_period.py
 import sys, json, datetime, statistics, os
 
+# --- Force UTF-8 stdout on Windows consoles ---
+import sys, io
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # py3.7+
+except Exception:
+    # Fallback for very old runtimes
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+
+
 DATE_FMT = "%Y-%m-%d"
 
 def parse_date(s):
@@ -26,6 +35,23 @@ def ranges_overlap(a_start, a_end, b_start, b_end):
         return False
     return (a_start <= b_end) and (b_start <= a_end)
 
+# --- NEW: robust extractor for sheet/file name across possible keys ---
+def get_sheet_name(r: dict):
+    # common places/keys we’ve seen in confidence_data_db.json rows
+    for key in (
+        "spreadsheet_name", "sheet_name", "sheet", "worksheet",
+        "file_sheet", "workbook_sheet",
+        "file_name", "filename", "source_file", "source_filename"
+    ):
+        v = r.get(key)
+        if v: return str(v)
+    # sometimes it may live inside a 'meta' object
+    meta = r.get("meta") or {}
+    for key in ("spreadsheet_name","sheet_name","file_name","filename"):
+        v = meta.get(key)
+        if v: return str(v)
+    return None
+
 def main():
     if len(sys.argv) < 4:
         print("Usage: report_generator_period.py START_DATE END_DATE DB_PATH", file=sys.stderr)
@@ -48,11 +74,9 @@ def main():
     # --- Select rows by evaluation range overlap (fallback to single dates) ---
     selected = []
     for r in rows:
-        # keep only "Active" when present
         if r.get("reportStatus") and r["reportStatus"] != "Active":
             continue
 
-        # Preferred: evaluation window overlap
         es = parse_date(r.get("evaluation_start"))
         ee = parse_date(r.get("evaluation_end"))
 
@@ -60,7 +84,6 @@ def main():
             selected.append(r)
             continue
 
-        # Fallback: single date within range
         ds = r.get("event_date") or r.get("generated_date")
         d  = parse_date(ds) if ds else None
         if d and (start <= d <= end):
@@ -121,8 +144,36 @@ def main():
         },
     }
 
+    # ---- Contributions block (now includes spreadsheet_name) ----
+    contributions = []
+    for r in selected:
+        cd = r.get("confidence_data") or {}
+        contributions.append({
+            "reportId": r.get("reportId"),
+            "program_type": r.get("program_type"),
+            "fundingBody": r.get("fundingBody"),
+            "event_date": r.get("event_date") or r.get("generated_date"),
+            "evaluation_start": r.get("evaluation_start"),
+            "evaluation_end": r.get("evaluation_end"),
+            "workshop_name": r.get("workshop_name") or r.get("title"),
+            "spreadsheet_name": get_sheet_name(r),  # <--- NEW
+            "satisfaction_rate": cd.get("satisfaction_rate"),
+            "pre_percent": cd.get("pre_percent"),
+            "post_percent": cd.get("post_percent"),
+            "increase_percent": cd.get("increase_percent"),
+        })
+
     print("===RESULT===")
     print(json.dumps(result, ensure_ascii=False))
+    print("===END===")
+
+    print("===CONTRIBUTIONS===")
+    print(json.dumps({
+        "start_date": start_s,
+        "end_date": end_s,
+        "generated_date": result["generated_date"],
+        "items": contributions
+    }, ensure_ascii=False))
     print("===END===")
 
 if __name__ == "__main__":

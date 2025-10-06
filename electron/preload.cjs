@@ -102,6 +102,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("Additional:analytics-updated", fn);
     return () => ipcRenderer.off("Additional:analytics-updated", fn);
   },
+  // 🔹 NEW: Contributions API
+  // contributions
+  getPeriodContributions: () => ipcRenderer.invoke("get-period-contributions"),
+  getPeriodContributionById: (periodReportId) =>
+    ipcRenderer.invoke("get-period-contribution-by-id", periodReportId),
 
   // Social Media (unchanged)
   getSocialFilters: (platform) => ipcRenderer.invoke("SocialMedia:get-filters", { platform }),

@@ -1,19 +1,20 @@
-// src/components/filter/AnnualReportGenerate.jsx
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
 import AnnualReportTableContainer from "./AnnualReports";
-import { FaEye, FaTrashAlt } from "react-icons/fa"; // <-- import trash icon
+import { FaEye, FaTrashAlt, FaList } from "react-icons/fa";
 import Swal from "sweetalert2";
 import ViewAnnualReportModal from "@/components/AnnualReportModal";
+import ViewContributions from "@/components/ViewContributions";
 
-function EventReportGenerate() {
+function AnnualReportTable() {
   const [annualModalIsOpen, setAnnualModalIsOpen] = useState(false);
   const [annualSelectedRow, setAnnualSelectedRow] = useState(null);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  const [contribOpen, setContribOpen] = useState(false);
+  const [contribPeriod, setContribPeriod] = useState(null);
 
-  // fetch all saved period reports
   const fetchPeriodReports = useCallback(async () => {
     try {
       setLoading(true);
@@ -30,13 +31,11 @@ function EventReportGenerate() {
 
   useEffect(() => { fetchPeriodReports(); }, [fetchPeriodReports]);
 
-  // auto-refresh when main sends updates (generation or deletion)
   useEffect(() => {
     const offUpdated = window.electronAPI.on?.("period-updated", () => fetchPeriodReports()) || (() => {});
     return () => offUpdated();
   }, [fetchPeriodReports]);
 
-  // delete handler
   const handleDelete = useCallback(async (periodReportId) => {
     const confirm = await Swal.fire({
       icon: "warning",
@@ -52,7 +51,6 @@ function EventReportGenerate() {
       const res = await window.electronAPI.deletePeriodReport(periodReportId);
       if (!res?.success) throw new Error(res?.error || "Delete failed.");
       Swal.fire({ icon: "success", title: "Deleted", timer: 1200, showConfirmButton: false });
-      
       setRows((prev) => prev.filter((r) => r.periodReportId !== periodReportId));
     } catch (e) {
       console.error(e);
@@ -60,7 +58,11 @@ function EventReportGenerate() {
     }
   }, []);
 
-  // columns (now use real period report fields)
+  const openContributions = useCallback((row) => {
+    setContribPeriod(row);
+    setContribOpen(true);
+  }, []);
+
   const columns = useMemo(
     () => [
       { Header: "Report ID", accessor: "periodReportId" },
@@ -68,11 +70,7 @@ function EventReportGenerate() {
       {
         Header: "Generated Date Range",
         id: "date_range",
-        accessor: (row) => {
-          const s = row.start_date ?? "—";
-          const e = row.end_date ?? "—";
-          return `${s} to ${e}`;
-        },
+        accessor: (row) => `${row.start_date ?? "—"} to ${row.end_date ?? "—"}`,
       },
       {
         Header: "Used Reports",
@@ -83,8 +81,19 @@ function EventReportGenerate() {
       {
         Header: "Funding Body",
         id: "fundingBody",
-        accessor: (row) => row?.filters?.fundingBody ?? "", // reads nested value
+        accessor: (row) => row?.filters?.fundingBody ?? "",
         width: 140,
+      },
+      {
+        Header: "Contributions",
+        width: 130,
+        Cell: ({ row }) => (
+          <FaList
+            title="View contributions"
+            style={{ cursor: "pointer", color: "#17a2b8" }}
+            onClick={() => openContributions(row.original)}
+          />
+        ),
       },
       {
         Header: "View",
@@ -93,32 +102,25 @@ function EventReportGenerate() {
           <FaEye
             title="View"
             style={{ cursor: "pointer", color: "#007bff" }}
-            onClick={() => {
-              setAnnualSelectedRow(row.original);
-              setAnnualModalIsOpen(true);
-            }}
+            onClick={() => { setAnnualSelectedRow(row.original); setAnnualModalIsOpen(true); }}
           />
         ),
       },
       {
         Header: "Delete",
         width: 80,
-        Cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <FaTrashAlt
-              title="Delete"
-              style={{ cursor: "pointer", color: "#dc3545" }}
-              onClick={() => handleDelete(r.periodReportId)} // <-- wire it here
-            />
-          );
-        },
+        Cell: ({ row }) => (
+          <FaTrashAlt
+            title="Delete"
+            style={{ cursor: "pointer", color: "#dc3545" }}
+            onClick={() => handleDelete(row.original.periodReportId)}
+          />
+        ),
       },
     ],
-    [handleDelete]
+    [handleDelete, openContributions]
   );
 
-  // meta title (optional)
   document.title = "Period Reports | Alike";
 
   return (
@@ -126,12 +128,12 @@ function EventReportGenerate() {
       <div className="container-fluid">
         <AnnualReportTableContainer
           columns={columns}
-          data={rows}                 // <-- use live data
+          data={rows}
           isGlobalFilter={true}
           isAddOptions={false}
           customPageSize={8}
           className="custom-header-css"
-          loading={loading}           // if your container supports it
+          loading={loading}
         />
       </div>
 
@@ -140,12 +142,18 @@ function EventReportGenerate() {
         onClose={() => setAnnualModalIsOpen(false)}
         data={annualSelectedRow}
       />
+
+      <ViewContributions
+        isOpen={contribOpen}
+        onClose={() => setContribOpen(false)}
+        period={contribPeriod}
+      />
     </div>
   );
 }
 
-EventReportGenerate.propTypes = {
+AnnualReportTable.propTypes = {
   preGlobalFilteredRows: PropTypes.any,
 };
 
-export default EventReportGenerate;
+export default AnnualReportTable;
