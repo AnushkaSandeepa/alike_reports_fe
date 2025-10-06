@@ -1,22 +1,20 @@
 // electron/preload.cjs
 const { contextBridge, ipcRenderer } = require("electron");
 
-// One allow-list for ALL renderer subscriptions
 const ALLOWED_ON = new Set([
   "period-updated",
   "period-progress",
-  "report-updated",           
-  "WebsiteDownloads:updated", 
+  "report-updated",
+  "WebsiteDownloads:updated",
 ]);
 
 contextBridge.exposeInMainWorld("electronAPI", {
-
-  // File picker
+  // Picker (xlsx/csv only)
   pickSpreadsheet: async () => {
     const result = await ipcRenderer.invoke("show-open-dialog", {
       title: "Select spreadsheet",
       properties: ["openFile"],
-      filters: [{ name: "Sheets", extensions: ["csv", "xls", "xlsx"] }],
+      filters: [{ name: "Sheets", extensions: ["xlsx", "csv"] }],
     });
     if (result.canceled || !result.filePaths.length) {
       return { success: false, error: "No file selected" };
@@ -24,58 +22,40 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return { success: true, filePath: result.filePaths[0] };
   },
 
-  extractSheetMetadata: (filePath) => ipcRenderer.invoke("extract-event-metadata", filePath),
+  // Path existence check (for drag from VS Code / browsers)
+  fsPathExists: (p) => ipcRenderer.invoke("fs:path-exists", p),
 
-  // Store uploaded spreadsheet
-  storeSpreadsheet: ({ sourcePath, programType, programDate, facilitator, dateRange , fundingBody,}) =>
-   ipcRenderer.invoke("store-spreadsheet", {
-    sourcePath, programType, programDate, facilitator, dateRange,  fundingBody,
-  }),
+  // Metadata (path or bytes)
+  extractSheetMetadata: (filePath) =>
+    ipcRenderer.invoke("extract-event-metadata", filePath),
+  extractSheetMetadataBytes: (bytes, originalName) =>
+    ipcRenderer.invoke("extract-event-metadata-bytes", { bytes, originalName }),
+
+  // Store (path or bytes)
+  storeSpreadsheet: (payload) =>
+    ipcRenderer.invoke("store-spreadsheet", payload),
+  storeSpreadsheetBytes: (bytes, originalName, meta) =>
+    ipcRenderer.invoke("store-spreadsheet-bytes", { bytes, originalName, ...meta }),
 
   updateSpreadsheetStatus: (fileId, status) =>
     ipcRenderer.invoke("update-spreadsheet-status", { fileId, status }),
-
-
   getUploadedSheets: () => ipcRenderer.invoke("get-uploaded-spreadsheets"),
   openUploadFolder: () => ipcRenderer.send("open-upload-folder"),
   deleteSpreadsheet: (fileId) => ipcRenderer.invoke("delete-spreadsheet", fileId),
 
-  // Event-based reports
-  generateReport: ({ spreadsheetId, spreadsheetPath, programType, evaluationStartDate, evaluationEndDate, fundingBody }) =>
-    ipcRenderer.invoke("generate-report", {
-      spreadsheetId,
-      spreadsheetPath,
-      programType,
-      evaluationStartDate,
-      evaluationEndDate,
-      fundingBody,
-  }),
+  // Reports (unchanged)
+  generateReport: (payload) => ipcRenderer.invoke("generate-report", payload),
   getReports: () => ipcRenderer.invoke("get-reports"),
   deleteReport: (id) => ipcRenderer.invoke("delete-report", id),
-  updateReportStatus: (reportId, status) => ipcRenderer.invoke("update-report-status", { reportId, status }),
+  updateReportStatus: (reportId, status) =>
+    ipcRenderer.invoke("update-report-status", { reportId, status }),
 
-  // Period-based (unchanged here)
+  // Period reports
   getPeriodReports: () => ipcRenderer.invoke("get-period-reports"),
-  generatePeriodReport: (payload) => ipcRenderer.invoke('report_generator_period', payload),
+  generatePeriodReport: (payload) => ipcRenderer.invoke("report_generator_period", payload),
   deletePeriodReport: (id) => ipcRenderer.invoke("delete-period-report", id),
 
-  on: (channel, handler) => {
-    if (!["period-updated", "period-progress"].includes(channel) || typeof handler !== "function") {
-      return () => {};
-    }
-    const wrapped = (_evt, payload) => { try { handler(payload); } catch {} };
-    ipcRenderer.on(channel, wrapped);
-    return () => ipcRenderer.removeListener(channel, wrapped); // <-- unsubscribe
-  },
-
-  // ===== WebsiteDownloads APIs for PIF =====
-  getWebsiteDownloads:     ()        => ipcRenderer.invoke("WebsiteDownloads:get-all"),
-  addWebsiteDownload:      (item)    => ipcRenderer.invoke("WebsiteDownloads:add", item),
-  updateWebsiteDownload:   (payload) => ipcRenderer.invoke("WebsiteDownloads:update", payload),
-  deleteWebsiteDownload:   (id)      => ipcRenderer.invoke("WebsiteDownloads:delete", id),
-  exportWebsiteDownloadsCsv: (rows, options = {}) =>
-    ipcRenderer.invoke("WebsiteDownloads:export-csv", { rows, ...options }),
-
+  // Unified event subscription
   on: (channel, handler) => {
     if (!ALLOWED_ON.has(channel) || typeof handler !== "function") return () => {};
     const wrapped = (_e, payload) => { try { handler(payload); } catch {} };
@@ -83,25 +63,25 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.removeListener(channel, wrapped);
   },
 
-  // ===== WebsiteDownloads APIs for SOL insights =====
+  // WebsiteDownloads (unchanged)
+  getWebsiteDownloads:     ()        => ipcRenderer.invoke("WebsiteDownloads:get-all"),
+  addWebsiteDownload:      (item)    => ipcRenderer.invoke("WebsiteDownloads:add", item),
+  updateWebsiteDownload:   (payload) => ipcRenderer.invoke("WebsiteDownloads:update", payload),
+  deleteWebsiteDownload:   (id)      => ipcRenderer.invoke("WebsiteDownloads:delete", id),
+  exportWebsiteDownloadsCsv: (rows, options = {}) =>
+    ipcRenderer.invoke("WebsiteDownloads:export-csv", { rows, ...options }),
+
+  // Additional Evaluations (unchanged)
   uploadAdditionalData: (documentType, filePath) =>
     ipcRenderer.invoke("AdditionalEvaluations:upload", { documentType, filePath }),
-
-  // New: pass a File object OR a path string; it will do the right thing
   uploadAdditionalDataAuto: async (documentType, fileOrPath) => {
     if (typeof fileOrPath === "string") {
       return ipcRenderer.invoke("AdditionalEvaluations:upload", { documentType, filePath: fileOrPath });
     }
     if (fileOrPath?.path && typeof fileOrPath.path === "string") {
-      // Electron sometimes gives you a real absolute path here
-      return ipcRenderer.invoke("AdditionalEvaluations:upload", {
-        documentType,
-        filePath: fileOrPath.path
-      });
+      return ipcRenderer.invoke("AdditionalEvaluations:upload", { documentType, filePath: fileOrPath.path });
     }
-    // No reliable path -> read bytes and send them
     const ab = await fileOrPath.arrayBuffer();
-    // pass a plain array (best cross-IPC compatibility)
     const bytesArray = Array.from(new Uint8Array(ab));
     return ipcRenderer.invoke("AdditionalEvaluations:upload", {
       documentType,
@@ -109,7 +89,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
       fileBytes: bytesArray
     });
   },
-
   onAdditionalEvaluationsProgress: (cb) => {
     const fn = (_e, p) => cb?.(p);
     ipcRenderer.on("AdditionalEvaluations:progress", fn);
@@ -124,24 +103,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.off("Additional:analytics-updated", fn);
   },
 
-  // ===== Social Media READ APIs =====
-  getSocialFilters: (platform) =>
-    ipcRenderer.invoke("SocialMedia:get-filters", { platform }),
-
-  getSocialData: ({ platform, metrics, years, months }) =>
-    ipcRenderer.invoke("SocialMedia:get-data", { platform, metrics, years, months }),
-
-  listSocialPlatforms: () =>
-    ipcRenderer.invoke("SocialMedia:list-platforms"),
-
+  // Social Media (unchanged)
+  getSocialFilters: (platform) => ipcRenderer.invoke("SocialMedia:get-filters", { platform }),
+  getSocialData: (opts) => ipcRenderer.invoke("SocialMedia:get-data", opts),
+  listSocialPlatforms: () => ipcRenderer.invoke("SocialMedia:list-platforms"),
   getSocialPosts: (filters) => ipcRenderer.invoke("SocialPosts:get", filters),
-
   getSocialReachSummary: (opts) => ipcRenderer.invoke("SocialMedia:get-reach-summary", opts),
 
-  // ===== Maintenance =====
+  // Maintenance (unchanged)
   copyMaintenancePdf: () => ipcRenderer.invoke("maintenance.copy-pdf"),
   pushUploadsToOneDrive: (opts) => ipcRenderer.invoke("maintenance.push-uploads-to-onedrive", opts || {}),
-  getOneDrivePath:       ()    => ipcRenderer.invoke("maintenance.get-onedrive-path"),
-
-
+  getOneDrivePath: () => ipcRenderer.invoke("maintenance.get-onedrive-path"),
 });

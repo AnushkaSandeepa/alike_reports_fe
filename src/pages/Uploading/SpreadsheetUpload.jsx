@@ -1,14 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
-  Row,
-  Col,
-  Card,
-  Form,
-  Input,
-  CardBody,
-  Container,
-  InputGroup,
-  FormGroup,
+  Row, Col, Card, Form, Input, CardBody, Container, InputGroup, FormGroup,
 } from "reactstrap";
 import Flatpickr from "react-flatpickr";
 import Swal from "sweetalert2";
@@ -19,6 +11,11 @@ import ExcelIcon from "../../assets/images/File/Excel.png";
 import { FaUpload } from "react-icons/fa";
 
 const MySwal = withReactContent(Swal);
+
+// Only allow .xlsx and .csv
+const ALLOWED_EXTS = [".xlsx", ".csv"];
+const getExt = (p) => (p?.match(/\.[^./\\]+$/)?.[0] || "").toLowerCase();
+const isValidSpreadsheet = (path) => ALLOWED_EXTS.includes(getExt(path));
 
 const PROGRAM_TYPES = [
   { value: "", label: "Select Type" },
@@ -32,21 +29,18 @@ const FUNDINGBODY = [
   { value: "DOH", label: "Department of Health (DOH)" },
 ];
 
-
-
 const SheetUpload = () => {
-  useEffect(() => {
-    document.title = "Spreadsheet Upload | Alike WA";
-  }, []);
+  useEffect(() => { document.title = "Spreadsheet Upload | Alike WA"; }, []);
 
   const [programType, setProgramType] = useState("");
   const [fundingBody, setFundingBody] = useState("");
-  const [programDate, setProgramDate] = useState(null); 
+  const [programDate, setProgramDate] = useState(null);
   const [status, setStatus] = useState("");
-  const [selectedFilePath, setSelectedFilePath] = useState(null);
+  const [selectedFilePath, setSelectedFilePath] = useState(null); // real path on disk
+  const [pendingBytes, setPendingBytes] = useState(null);         // { bytes, originalName } when pathless
   const [fileName, setFileName] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [facilitator, setFacilitator] = useState();
+  const [facilitator, setFacilitator] = useState("");
   const [dateRange, setDateRange] = useState([]);
 
   const RequiredAsterisk = () => (
@@ -55,56 +49,94 @@ const SheetUpload = () => {
     </small>
   );
 
+  const applyMetadataFrom = (res) => {
+    if (res?.eventDate) {
+      const [y, m, d] = res.eventDate.split("-").map(Number);
+      setProgramDate(new Date(y, m - 1, d));
+    } else setProgramDate(null);
+
+    setFacilitator(res?.facilitator || "");
+
+    if (res?.fundingBody) {
+      const fb = String(res.fundingBody || "").trim().toUpperCase();
+      setFundingBody(["DOC", "DOH"].includes(fb) ? fb : "");
+    }
+
+    if (res?.range && (res.range.start || res.range.end)) {
+      setDateRange([res.range.start || "", res.range.end || ""]);
+    } else setDateRange([]);
+  };
+
+  async function hydrateFromRealPath(p) {
+    if (!isValidSpreadsheet(p)) {
+      await MySwal.fire({ icon: "warning", title: "Unsupported file", text: "Only .xlsx and .csv files are allowed." });
+      return;
+    }
+    setPendingBytes(null);
+    setSelectedFilePath(p);
+    setFileName(p.split(/[\\/]/).pop());
+    setStatus("");
+
+    const res = await window.electronAPI.extractSheetMetadata(p);
+    if (res?.success) applyMetadataFrom(res);
+    else console.error("extractSheetMetadata error:", res?.error);
+  }
+
+  async function hydrateFromFileOrBytes(fileOrPath) {
+    if (typeof fileOrPath === "string") {
+      const ok = await window.electronAPI.fsPathExists(fileOrPath);
+      if (ok) return hydrateFromRealPath(fileOrPath);
+      await MySwal.fire({ icon: "error", title: "File not found", text: fileOrPath });
+      return;
+    }
+
+    // It's a File object (drag from browser/VS Code without real path)
+    const f = fileOrPath;
+    if (f && typeof f.arrayBuffer === "function") {
+      const ab = await f.arrayBuffer();
+      const bytes = Array.from(new Uint8Array(ab));
+
+      const meta = await window.electronAPI.extractSheetMetadataBytes(bytes, f.name);
+      if (meta?.success) applyMetadataFrom(meta);
+      else console.error("extractSheetMetadataBytes error:", meta?.error);
+
+      setSelectedFilePath(null);
+      setPendingBytes({ bytes, originalName: f.name });
+      setFileName(f.name || "upload.xlsx");
+      setStatus("");
+      return;
+    }
+
+    await MySwal.fire({
+      icon: "warning",
+      title: "Unsupported drop",
+      text: "Please drag from File Explorer/Finder, or click to select.",
+    });
+  }
+
   const handlePickFile = async () => {
     const result = await window.electronAPI.pickSpreadsheet();
     if (result?.success) {
-      const path = result.filePath;
-      // quick client-side extension check
-      const ext = (path.match(/\.[^./\\]+$/)?.[0] || "").toLowerCase();
-      const allowed = [".xlsx", ".xls", ".csv"];
-      if (!allowed.includes(ext)) {
-        MySwal.fire({
-          icon: "warning",
-          title: "Unsupported file",
-          text: "Only .xlsx, .xls, .csv files are allowed.",
-        });
-        return;
-      }
-
-      setSelectedFilePath(path);
-      setFileName(path.split(/[\\/]/).pop());
-      setStatus("");
-
-      // Auto-fill program date; backend returns "YYYY-MM-DD"
-      try {
-        const res = await window.electronAPI.extractSheetMetadata(path);
-        if (res?.success) {
-          // Program Date
-          if (res.eventDate) {
-            const [y, m, d] = res.eventDate.split("-").map(Number);
-            setProgramDate(new Date(y, m - 1, d));
-          }
-          // Person Incharge
-          setFacilitator(res.facilitator);
-          // Date Range
-          if (res.range) {
-            setDateRange([res.range.start, res.range.end]);
-          }
-        }
-      } catch (e) {
-        console.error("extractSheetMetadata failed:", e);
-      }
-
-
+      await hydrateFromRealPath(result.filePath);
     } else {
       setStatus("File selection cancelled.");
     }
   };
 
-  // inside SheetUpload.jsx
+  const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); };
+  const handleDrop = async (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    if (file.path) {
+      const exists = await window.electronAPI.fsPathExists(file.path);
+      if (exists) return hydrateFromRealPath(file.path);
+    }
+    await hydrateFromFileOrBytes(file);
+  };
 
   const handleUpload = async () => {
-    if (!programType || !programDate || !selectedFilePath || !fundingBody) {
+    if (!programType || !programDate || (!selectedFilePath && !pendingBytes) || !fundingBody) {
       MySwal.fire({
         icon: "warning",
         title: "Missing fields",
@@ -120,16 +152,32 @@ const SheetUpload = () => {
       const ymdLocal = (d) =>
         [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-");
 
-      const res = await window.electronAPI.storeSpreadsheet({
-        sourcePath: selectedFilePath,
-        programType,
-        fundingBody,                         // <-- send it
-        programDate: ymdLocal(programDate),
-        personIncharge: facilitator || "",   // <-- map to expected key
-        dateRange: Array.isArray(dateRange)
-          ? { start: dateRange[0] || null, end: dateRange[1] || null }
-          : { start: null, end: null },
-      });
+      let res;
+      if (selectedFilePath) {
+        res = await window.electronAPI.storeSpreadsheet({
+          sourcePath: selectedFilePath,
+          programType,
+          fundingBody,
+          programDate: ymdLocal(programDate),
+          personIncharge: facilitator || "",
+          dateRange: Array.isArray(dateRange)
+            ? { start: dateRange[0] || null, end: dateRange[1] || null }
+            : { start: null, end: null },
+        });
+      } else {
+        // bytes path
+        res = await window.electronAPI.storeSpreadsheetBytes(
+          pendingBytes.bytes,
+          pendingBytes.originalName,
+          {
+            programType,
+            fundingBody,
+            programDate: ymdLocal(programDate),
+            personIncharge: facilitator || "",
+            dateRange: { start: dateRange[0] || null, end: dateRange[1] || null },
+          }
+        );
+      }
 
       if (res?.success) {
         MySwal.fire({
@@ -141,11 +189,15 @@ const SheetUpload = () => {
           showConfirmButton: false,
         });
 
+        // reset form
         setProgramType("");
-        setFundingBody("");                 // <-- reset
+        setFundingBody("");
         setProgramDate(null);
         setSelectedFilePath(null);
+        setPendingBytes(null);
         setFileName(null);
+        setFacilitator("");
+        setDateRange([]);
         setStatus("");
       } else {
         MySwal.fire({ icon: "error", title: "Upload Failed", text: res?.error || "Unknown error" });
@@ -156,7 +208,6 @@ const SheetUpload = () => {
       setIsUploading(false);
     }
   };
-
 
   return (
     <div className="page-content">
@@ -175,8 +226,7 @@ const SheetUpload = () => {
                   <Row>
                     <Col md={4} className="mb-3">
                       <h6 className="card-title">
-                        Select Program Type
-                        {!programType && <RequiredAsterisk />}
+                        Select Program Type {!programType && <RequiredAsterisk />}
                       </h6>
                       <select
                         value={programType}
@@ -192,39 +242,33 @@ const SheetUpload = () => {
                     </Col>
 
                     <Col md={4} className="mb-3" title="Make sure your data file has a column named Funding Body">
-                      <h6 className="card-title" >
-                      Funding Body (Auto)
-                      {<RequiredAsterisk />}
-                      </h6>
+                      <h6 className="card-title">Funding Body (Auto) <RequiredAsterisk /></h6>
                       <div>
                         <select
                           className="form-select"
                           value={fundingBody}
                           style={{ height: "40px" }}
                           onChange={(e) => setFundingBody(e.target.value)}
-
                         >
-                        {FUNDINGBODY.map((pt) => (
-                          <option key={pt.value} value={pt.value}>
-                            {pt.label}
-                          </option>
-                        ))}
-                      </select>
-
+                          {FUNDINGBODY.map((pt) => (
+                            <option key={pt.value} value={pt.value}>
+                              {pt.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </Col>
 
-                    
-
                     <Col md={12} className="mt-3">
                       <h6 className="card-title">
-                        Upload Your Spreadsheet
-                        <RequiredAsterisk />
+                        Upload Your Spreadsheet <RequiredAsterisk />
                       </h6>
 
                       <div className="d-flex flex-column gap-2">
                         <div
                           onClick={handlePickFile}
+                          onDragOver={handleDragOver}
+                          onDrop={handleDrop}
                           style={{
                             border: "2px dashed #6c757d",
                             borderRadius: "6px",
@@ -235,29 +279,18 @@ const SheetUpload = () => {
                             backgroundColor: "#f8f9fa",
                             transition: "background-color 0.2s ease",
                           }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.backgroundColor = "#e9ecef")
-                          }
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.backgroundColor = "#f8f9fa")
-                          }
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e9ecef")}
+                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#f8f9fa")}
+                          aria-label="File drop zone"
                         >
-                          {/* Upload Icon */}
                           <div style={{ fontSize: "50px", marginBottom: "10px" }}>
-                            <i className="bi bi-cloud-upload"></i>
                             <FaUpload />
                           </div>
                           <div style={{ fontSize: "16px", fontWeight: 500 }}>
-                            Click to Select Spreadsheet
+                            Click or Drag & Drop a Spreadsheet
                           </div>
-                          <div
-                            style={{
-                              fontSize: "12px",
-                              color: "#adb5bd",
-                              marginTop: "5px",
-                            }}
-                          >
-                            Only .xlsx, .xls, .csv files are allowed
+                          <div style={{ fontSize: "12px", color: "#adb5bd", marginTop: "5px" }}>
+                            Only .xlsx and .csv files are allowed
                           </div>
                         </div>
 
@@ -271,20 +304,19 @@ const SheetUpload = () => {
                             }}
                           >
                             <div className="d-flex align-items-center gap-2">
-                              <img
-                                src={ExcelIcon}
-                                alt="Excel Icon"
-                                style={{ width: 34, height: 34 }}
-                              />
+                              <img src={ExcelIcon} alt="Excel Icon" style={{ width: 34, height: 34 }} />
                               <span>{fileName}</span>
                             </div>
                             <button
                               type="button"
                               onClick={() => {
                                 setSelectedFilePath(null);
+                                setPendingBytes(null);
                                 setFileName(null);
                                 setStatus("");
-                                setProgramDate(null); // also clear auto-filled date
+                                setProgramDate(null);
+                                setFacilitator("");
+                                setDateRange([]);
                               }}
                               style={{
                                 background: "none",
@@ -295,6 +327,7 @@ const SheetUpload = () => {
                                 lineHeight: "1",
                               }}
                               title="Remove file"
+                              aria-label="Remove file"
                             >
                               &times;
                             </button>
@@ -303,67 +336,45 @@ const SheetUpload = () => {
 
                         <Row className="mt-3">
                           <Col md={4} className="mb-3 mt-3" title="Make sure your data file has a column named Event Date">
-                            <h6 className="card-title" >
-                              Program Date (Auto)
-                              {!programDate && <RequiredAsterisk />}
-                            </h6>
+                            <h6 className="card-title">Program Date (Auto) {!programDate && <RequiredAsterisk />}</h6>
                             <InputGroup>
                               <Flatpickr
                                 className="form-control d-block date-buttion-alike"
                                 placeholder="dd M,yyyy"
-                                  options={{
-                                  altInput: true,
-                                  altFormat: "F j, Y",
-                                  dateFormat: "Y-m-d",
-                                }}
+                                options={{ altInput: true, altFormat: "F j, Y", dateFormat: "Y-m-d" }}
                                 value={programDate ? [programDate] : []}
                                 onChange={(dates) => setProgramDate(dates[0] || null)}
-                                
                               />
                             </InputGroup>
                           </Col>
 
                           <Col md={4} className="mt-3" title="Make sure your data file has a column named Facilitator">
-                                <h6 className="card-title" >
-                              Facilitator (Auto)
-                              {<RequiredAsterisk />}
-                            </h6>
+                            <h6 className="card-title">Facilitator (Auto) <RequiredAsterisk /></h6>
                             <div>
                               <InputGroup>
-                                <Input
-                                  type="text"
-                                  className="form-control"
-                                  value={facilitator}
-                                  style={{ height: "40px" }}
-                                  disabled
-                                />
-
+                                <Input type="text" className="form-control" value={facilitator} style={{ height: "40px" }} disabled />
                               </InputGroup>
                             </div>
                           </Col>
 
                           <Col md={4} className="mt-3" title="Make sure your data file has a column named Event Date">
-                                <h6 className="card-title" >
-                              Included Range (Auto)
-                              {<RequiredAsterisk />}
-                            </h6>
+                            <h6 className="card-title">Included Range (Auto) <RequiredAsterisk /></h6>
                             <div>
                               <FormGroup className="mb-0">
-                              <InputGroup>
-                                <Flatpickr
-                                  className="form-control d-block date-buttion-alike"
-                                  placeholder="yyyy-mm-dd to yyyy-mm-dd"
-                                  options={{ mode: "range", dateFormat: "Y-m-d" }}
-                                  value={dateRange}
-                                  
-                                />
-                              </InputGroup>
-                            </FormGroup>
+                                <InputGroup>
+                                  <Flatpickr
+                                    className="form-control d-block date-buttion-alike"
+                                    placeholder="yyyy-mm-dd to yyyy-mm-dd"
+                                    options={{ mode: "range", dateFormat: "Y-m-d" }}
+                                    value={dateRange}
+                                  />
+                                </InputGroup>
+                              </FormGroup>
                             </div>
                           </Col>
                         </Row>
 
-                        {selectedFilePath && (
+                        {(selectedFilePath || pendingBytes) && (
                           <button
                             type="button"
                             className="btn btn-alike"
@@ -375,26 +386,8 @@ const SheetUpload = () => {
                         )}
                       </div>
                     </Col>
-
-                    
-
-
-
-
                   </Row>
                 </Form>
-
-                {/* If you want a status area later:
-                {status && (
-                  <Alert
-                    color={status.startsWith("Error") ? "danger" : "success"}
-                    className="mt-3"
-                    toggle={() => setStatus("")}
-                    fade
-                  >
-                    {status}
-                  </Alert>
-                )} */}
               </CardBody>
             </Card>
           </Col>
