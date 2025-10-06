@@ -4,7 +4,9 @@ artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 
 directories:
   output: dist_electron
-  buildResources: build
+  # Keep your existing build folder if you use it for other assets,
+  # but set buildResources to your icon source so builder can find them:
+  buildResources: electron/assets/icons
 
 files:
   - dist/**
@@ -12,12 +14,17 @@ files:
   - package.json
 
 npmRebuild: false
-
-
 asar: true
 
 extraResources:
-  - from: scripts           # your Python or helper scripts
+  # --- include your runtime icons so app code can load them via process.resourcesPath ---
+  - from: electron/assets/icons
+    to: assets/icons
+    filter:
+      - "**/*"
+
+  # --- keep your existing resources ---
+  - from: scripts
     to: scripts
     filter:
       - "**/*"
@@ -26,9 +33,11 @@ extraResources:
     to: seeds/website_downloads_db.json
 
 win:
+  icon: electron/assets/icons/icon.ico
   target:
     - nsis
-  # For a no-installer “portable” build, add: - portable
+  # To also build a portable exe, add:
+  # - portable
 
 nsis:
   oneClick: true
@@ -36,11 +45,79 @@ nsis:
   allowToChangeInstallationDirectory: false
 
 mac:
+  icon: electron/assets/icons/icon.icns
   target:
     - dmg
   category: public.app-category.productivity
 
 linux:
+  # For Linux, pointing to the directory lets it pick up PNGs in multiple sizes
+  icon: electron/assets/icons
+  target:
+    - AppImage
+    - deb
+  category: Utility
+
+# ⚠️ GitHub publishing
+publish:
+  provider: github
+  owner: AnushkaSandeepa
+  repo: alike_reports_fe
+appId: com.alike.reports
+productName: Alike Reports betaV
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
+directories:
+  output: dist_electron
+  # Keep your existing build folder if you use it for other assets,
+  # but set buildResources to your icon source so builder can find them:
+  buildResources: electron/assets/icons
+
+files:
+  - dist/**
+  - electron/**
+  - package.json
+
+npmRebuild: false
+asar: true
+
+extraResources:
+  # --- include your runtime icons so app code can load them via process.resourcesPath ---
+  - from: electron/assets/icons
+    to: assets/icons
+    filter:
+      - "**/*"
+
+  # --- keep your existing resources ---
+  - from: scripts
+    to: scripts
+    filter:
+      - "**/*"
+
+  - from: seeds/website_downloads_db.json
+    to: seeds/website_downloads_db.json
+
+win:
+  icon: electron/assets/icons/icon.ico
+  target:
+    - nsis
+  # To also build a portable exe, add:
+  # - portable
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+
+mac:
+  icon: electron/assets/icons/icon.icns
+  target:
+    - dmg
+  category: public.app-category.productivity
+
+linux:
+  # For Linux, pointing to the directory lets it pick up PNGs in multiple sizes
+  icon: electron/assets/icons
   target:
     - AppImage
     - deb

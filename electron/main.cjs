@@ -1,5 +1,5 @@
 // electron/main.cjs
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, nativeImage } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -14,7 +14,36 @@ const registerIpcHandlers      = require("./ipcHandlers.cjs");
 const registerReportGenerate   = require("./ipcReportGenerate.cjs");   // exports function ()
 const registerPeriodReports    = require("./ipcPeriodReports.cjs");
 const registerAdditionalEvals  = require("./ipcAdditionalEvaluations.cjs"); // exports function ()
-const registerMaintenanceIPC = require("./ipcMaintenance.cjs");
+const registerMaintenanceIPC   = require("./ipcMaintenance.cjs");
+
+/* ---------------------- icon helpers ---------------------- */
+// In dev:   <repo>/electron/assets/icons
+// Packaged: <resources>/assets/icons
+function resolveAsset(...parts) {
+  const base = app.isPackaged
+    ? path.join(process.resourcesPath, "assets", "icons")
+    : path.join(__dirname, "assets", "icons");
+  return path.join(base, ...parts);
+}
+
+function getIconPath() {
+  // Prefer platform-specific file
+  if (process.platform === "win32") {
+    const ico = resolveAsset("icon.ico");
+    if (fs.existsSync(ico)) return ico;
+  }
+  // Fallback to a large PNG (Electron will downscale)
+  const png = resolveAsset("icon-1024.png");
+  if (fs.existsSync(png)) return png;
+
+  // As a last resort, allow your original PNG name if you kept it
+  const legacy = resolveAsset("AlikeAnaltica-logo.png");
+  if (fs.existsSync(legacy)) return legacy;
+
+  // If nothing found, return undefined (Electron will use default icon)
+  return undefined;
+}
+/* --------------------------------------------------------- */
 
 function getIndexHtmlPath() {
   const candidates = [
@@ -28,9 +57,13 @@ function getIndexHtmlPath() {
 }
 
 function createWindow() {
+  const iconPath = getIconPath();
+  const icon = iconPath ? nativeImage.createFromPath(iconPath) : undefined;
+
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon, // ✅ window/taskbar icon on Win/Linux (and fallback for macOS dock)
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -50,7 +83,7 @@ function createWindow() {
     win.webContents.on("console-message", (_e, level, message) => {
       console.log("renderer:", message);
     });
-    // win.webContents.openDevTools(); // ← keep disabled in prod
+    // win.webContents.openDevTools(); // keep disabled in prod
   }
 }
 
@@ -69,6 +102,17 @@ if (!gotLock) {
   app.whenReady().then(() => {
     try { app.setAppUserModelId("com.alike.reports"); } catch {}
 
+    // Optional: set dock icon explicitly on macOS
+    if (process.platform === "darwin") {
+      const dockIconPath = getIconPath();
+      if (dockIconPath) {
+        try {
+          const dockIcon = nativeImage.createFromPath(dockIconPath);
+          app.dock.setIcon(dockIcon);
+        } catch {}
+      }
+    }
+
     // 1) Seed after ready (safe app.getPath)
     ensureSeeds();
 
@@ -78,7 +122,6 @@ if (!gotLock) {
     registerPeriodReports(ipcMain);
     registerAdditionalEvals(); // zero-arg
     registerMaintenanceIPC();
-
 
     // 3) Create window
     createWindow();
