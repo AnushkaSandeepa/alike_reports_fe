@@ -136,8 +136,8 @@ const Topbar = ({ topbarDark, toggleMenu, navOpen }) => {
 						<ProfileDropdown
 							userImage={userImage}
 							menuItems={profileMenus}
-							username={'Dominic Keller'}
-							userTitle={'Founder'}
+							username={'Alike WA'}
+							userTitle={'Analyst'}
 						/>
 					</li>
 				</ul>

@@ -21,7 +21,7 @@ const UserBox = () => {
 					height="42"
 					className="rounded-circle shadow-sm"
 				/>
-				<span className="leftbar-user-name mt-2">Dominic Keller</span>
+				<span className="leftbar-user-name mt-2">Alike WA Admin</span>
 			</Link>
 		</div>
 	);
