@@ -1,10 +1,8 @@
 // electron/ipcHandlers.cjs
-
 const { dialog, app, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const XLSX = require("xlsx");
-
 
 const sanitize = (name) => name.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_").trim();
 
@@ -31,7 +29,7 @@ function extractSheetMetadata(filePath) {
     const workbook = XLSX.readFile(filePath);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const jsonData = XLSX.utils.sheet_to_json(sheet, { raw: true });
- 
+
     if (!jsonData.length) {
       return {
         success: false,
@@ -136,7 +134,9 @@ module.exports = (ipcMain) => {
       try {
         if (!sourcePath) throw new Error("sourcePath is required");
 
-        const allowedExts = [".csv", ".xls", ".xlsx"];
+        // Only two formats allowed here as well:
+        const allowedExts = [".csv", ".xlsx"];
+
         const resolvedSource = path.resolve(sourcePath);
 
         const stat = await fs.promises.stat(resolvedSource);
@@ -144,7 +144,7 @@ module.exports = (ipcMain) => {
 
         const ext = path.extname(resolvedSource).toLowerCase();
         if (!allowedExts.includes(ext)) {
-          throw new Error(`Unsupported file type "${ext}".`);
+          throw new Error(`Unsupported file type "${ext}". Only .xlsx and .csv are allowed.`);
         }
 
         // Base data dir (for DB + id file)
@@ -163,8 +163,6 @@ module.exports = (ipcMain) => {
 
         const spreadsheetDir = path.join(uploadsBase, subfolder);
         await fs.promises.mkdir(spreadsheetDir, { recursive: true });
-
-
 
         const id = getNextId(path.join(documentsDir, "last_id.txt"));
         const originalName = path.basename(resolvedSource, ext);
