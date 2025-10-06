@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import TableContainer from "@/pages/SheetList/TableContainer";
-import { FaTrash, FaEye } from "react-icons/fa";
+import { FaTrash, FaEye, FaTrashAlt } from "react-icons/fa";
 
 function EventSheetsTable() {
   const [sheetData, setSheetData] = useState([]);
@@ -142,14 +142,20 @@ function EventSheetsTable() {
       },
       {
         Header: "Delete",
-        width: 100,
+        width: 80,
         Cell: ({ row }) => (
-          <FaTrash
-            style={{ cursor: "pointer", color: "#dc3545" }}
-            onClick={() => handleDelete(row.index)}
-          />
-        )
-      }
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+            <FaTrashAlt
+              title="Delete"
+              role="button"
+              tabIndex={0}
+              style={{ cursor: "pointer", color: "#dc3545" }}
+              onClick={() => handleDelete(row.index)}
+            />
+          </div>
+        ),
+      },
+      
     ],
     [sheetData]
   );

@@ -84,39 +84,52 @@ function AnnualReportTable() {
         accessor: (row) => row?.filters?.fundingBody ?? "",
         width: 140,
       },
-      {
+     {
         Header: "Contributions",
         width: 130,
         Cell: ({ row }) => (
-          <FaList
-            title="View contributions"
-            style={{ cursor: "pointer", color: "#17a2b8" }}
-            onClick={() => openContributions(row.original)}
-          />
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+            <FaList
+              title="View contributions"
+              role="button"
+              tabIndex={0}
+              style={{ cursor: "pointer", color: "#17a2b8" }}
+              onClick={() => openContributions(row.original)}
+            />
+          </div>
         ),
       },
       {
         Header: "View",
         width: 80,
         Cell: ({ row }) => (
-          <FaEye
-            title="View"
-            style={{ cursor: "pointer", color: "#007bff" }}
-            onClick={() => { setAnnualSelectedRow(row.original); setAnnualModalIsOpen(true); }}
-          />
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+            <FaEye
+              title="View"
+              role="button"
+              tabIndex={0}
+              style={{ cursor: "pointer", color: "#007bff" }}
+              onClick={() => { setAnnualSelectedRow(row.original); setAnnualModalIsOpen(true); }}
+            />
+          </div>
         ),
       },
       {
         Header: "Delete",
         width: 80,
         Cell: ({ row }) => (
-          <FaTrashAlt
-            title="Delete"
-            style={{ cursor: "pointer", color: "#dc3545" }}
-            onClick={() => handleDelete(row.original.periodReportId)}
-          />
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+            <FaTrashAlt
+              title="Delete"
+              role="button"
+              tabIndex={0}
+              style={{ cursor: "pointer", color: "#dc3545" }}
+              onClick={() => handleDelete(row.original.periodReportId)}
+            />
+          </div>
         ),
       },
+
     ],
     [handleDelete, openContributions]
   );

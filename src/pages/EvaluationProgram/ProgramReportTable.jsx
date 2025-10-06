@@ -152,7 +152,7 @@ const handleToggleStatus = useCallback(async (reportId, currentStatus) => {
         Cell: ({ row }) => {
         const r = row.original;
         return (
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <div style={{ display: "flex", justifyContent: "center", gap: 12, alignItems: "center" }}>
             <FaEye
                 title="View"
                 style={{ cursor: 'pointer', color: '#007bff' }}
