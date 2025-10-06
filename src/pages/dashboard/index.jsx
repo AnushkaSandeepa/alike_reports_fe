@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardBody, CardTitle, Col, Container, Row, Spinner } from 'reactstrap';
 import { IoPauseCircleSharp } from "react-icons/io5";
-import { BiSolidCarMechanic } from "react-icons/bi";
+import { BiSolidCalendarEvent, BiSolidCarMechanic, BiSolidReport } from "react-icons/bi";
 import InfoCard from '../../components/InfoCard';
 import { PageBreadcrumb } from '@/components';
 import WebsiteDownloadsViz from './websitedownloadchart';
@@ -79,25 +79,25 @@ const Dashboard = () => {
                       }
                       body={
                         <span className="info-card-body" style={{ fontSize: '60px', fontWeight: '700', color: '#ACE8E6' }}>
-                          100
+                          34
                         </span>
                       }
-                      icon={<BiSolidCarMechanic color="#064d5f" />}
+                      icon={<BiSolidCalendarEvent color="#064d5f" />}
                     />
                   </Col>
                   <Col>
                     <InfoCard
                       title={
                         <span className="info-card-title" style={{ fontSize: '24px', fontWeight: '700' }}>
-                          Completed <br />Workshops
+                          Number of <br />Reports
                         </span>
                       }
                       body={
                         <span className="info-card-body" style={{ fontSize: '60px', fontWeight: '700', color: '#ACE8E6' }}>
-                          85
+                          31
                         </span>
                       }
-                      icon={<IoPauseCircleSharp color="#064d5f" />}
+                      icon={<BiSolidReport color="#064d5f" />}
                     />
                   </Col>
                 </Row>
